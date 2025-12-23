@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
-const PORT = 5000;
+const PORT = 3000;
 
 app.use(express.static('public'));
 
@@ -124,4 +124,4 @@ app.get('/api/sei-stats', async (req, res) => {
     res.json(stats);
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://0.0.0.0:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

@@ -18,11 +18,7 @@ expertMode = true
 
 [[ports]]
 localPort = 3000
-externalPort = 80
-
-[[ports]]
-localPort = 5000
-externalPort = 80
+externalPort = 3000
 
 [workflows]
 runButton = "Project"
@@ -40,10 +36,10 @@ args = "Start blockchain stats server"
 name = "Start blockchain stats server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node index.js"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
+waitForPort = 3000
