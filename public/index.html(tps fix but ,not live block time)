@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Live Blockchain Pulse</title>
+
+<style>
+body {
+  background:#050505;
+  color:#fff;
+  font-family:Inter, system-ui, sans-serif;
+  margin:0;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.grid-container {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  width:95vw;
+  max-width:1100px;
+}
+
+.grid-item {
+  background:#111;
+  border:1px solid #333;
+  border-radius:8px;
+  overflow:hidden;
+}
+
+.label {
+  padding:8px;
+  border-bottom:1px solid #444;
+  background:rgba(0,0,0,0.85);
+}
+
+.chain-name {
+  color:#00ff88;
+  font-weight:700;
+  font-size:13px;
+  text-transform:uppercase;
+  display:block;
+  margin-bottom:4px;
+}
+
+.stat-row {
+  display:flex;
+  justify-content:space-between;
+  font-size:10px;
+  color:#888;
+  font-family:monospace;
+}
+
+.val { color:#fff; }
+
+canvas {
+  width:100%;
+  aspect-ratio:1/1;
+  background:#000;
+  image-rendering:pixelated;
+}
+
+button {
+  margin-top:20px;
+  background:#00ff88;
+  color:#000;
+  border:none;
+  padding:15px 40px;
+  font-size:16px;
+  font-weight:800;
+  border-radius:6px;
+  cursor:pointer;
+}
+button:hover { box-shadow:0 0 20px #00ff88; }
+</style>
+</head>
+
+<body>
+
+<h1>Live Blockchain Pulse</h1>
+<p style="color:#666;margin-bottom:20px">
+Revealing pixels based on real-time block speed
+</p>
+
+<div class="grid-container" id="grid"></div>
+<button id="startBtn">SYNC & START</button>
+
+<script>
+const CHAINS = [
+  { name:"Fogo", endpoint:"/api/fogo-stats", img:"fogo.png" },
+  { name:"Aptos", endpoint:"/api/aptos-stats", img:"aptos.png" },
+  { name:"Sui", endpoint:"/api/sui-stats", img:"sui.png" },
+  { name:"Solana", endpoint:"/api/solana-stats", img:"solana.png" },
+  { name:"Op BNB", endpoint:"/api/bnb-stats", img:"opbnb.png" },
+  { name:"Sei", endpoint:"/api/sei-stats", img:"sei.png" },
+  { name:"Monad", endpoint:"/api/monad-stats", img:"monad.png" },
+  { name:"Somnia", endpoint:"/api/somnia-stats", img:"somnia.png" },
+  { name:"Arbitrum", endpoint:"/api/arbitrum-stats", img:"arbitrum.png" }
+];
+
+const state = {};
+
+function createGrid() {
+  const grid = document.getElementById("grid");
+
+  CHAINS.forEach(c => {
+    state[c.name] = {
+      lastHeight:0,
+      lastHeightTime:Date.now(),
+      lastTx:undefined,
+      lastTxTime:Date.now(),
+      blockSpeed:"Syncing...",
+      tps:"Syncing...",
+      animDelay:40,
+      running:false
+    };
+
+    const box = document.createElement("div");
+    box.className = "grid-item";
+    box.innerHTML = `
+      <div class="label">
+        <span class="chain-name">${c.name}</span>
+        <div class="stat-row">
+          <span>SPEED: <span class="val" id="speed-${c.name}">---</span></span>
+          <span>TPS: <span class="val" id="tps-${c.name}">---</span></span>
+        </div>
+      </div>
+      <canvas id="cv-${c.name}"></canvas>
+    `;
+    grid.appendChild(box);
+
+    const canvas = box.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 400;
+    canvas.height = 400;
+
+    const img = new Image();
+    img.src = c.img;
+    img.onload = () => {
+      ctx.drawImage(img,0,0,400,400);
+      state[c.name].imgData = ctx.getImageData(0,0,400,400);
+      ctx.fillStyle="black";
+      ctx.fillRect(0,0,400,400);
+      state[c.name].ctx = ctx;
+    };
+
+    setInterval(() => pollChain(c), 1500);
+  });
+}
+
+async function pollChain(chain) {
+  try {
+    const res = await fetch(chain.endpoint);
+    const data = await res.json();
+    const s = state[chain.name];
+    const now = Date.now();
+
+    /* -------- BLOCK SPEED -------- */
+    const height = data.height || data.tx_count || 0;
+    if (s.lastHeight && height > s.lastHeight) {
+      const dt = now - s.lastHeightTime;
+      const blocks = height - s.lastHeight;
+      const msPerBlock = dt / blocks;
+      s.blockSpeed = (msPerBlock/1000).toFixed(2)+"s";
+      s.animDelay = Math.max(2, Math.min(80, msPerBlock/100));
+    }
+    s.lastHeight = height;
+    s.lastHeightTime = now;
+
+    /* -------- TPS (FRONTEND CALC) -------- */
+    if (data.tps !== undefined) {
+      s.tps = data.tps.toFixed(2);
+    } else if (s.lastTx !== undefined && data.tx_count > s.lastTx) {
+      const elapsed = (now - s.lastTxTime) / 1000;
+      const diff = data.tx_count - s.lastTx;
+      if (elapsed > 0) s.tps = (diff / elapsed).toFixed(2);
+    }
+
+    s.lastTx = data.tx_count;
+    s.lastTxTime = now;
+
+    document.getElementById(`speed-${chain.name}`).innerText = s.blockSpeed;
+    document.getElementById(`tps-${chain.name}`).innerText = s.tps;
+
+  } catch(e) {
+    console.warn(chain.name, e);
+  }
+}
+
+document.getElementById("startBtn").onclick = () => {
+  CHAINS.forEach(c => {
+    const s = state[c.name];
+    if (s.running || !s.imgData) return;
+    s.running = true;
+
+    const pixels = [...Array(160000).keys()];
+    pixels.sort(()=>Math.random()-0.5);
+
+    let i = 0;
+    function step() {
+      for (let n=0;n<250;n++) {
+        const p = pixels[i++];
+        if (p===undefined) return;
+        const x = p % 400;
+        const y = Math.floor(p / 400);
+        const d = s.imgData.data;
+        const idx = p*4;
+        s.ctx.fillStyle = `rgb(${d[idx]},${d[idx+1]},${d[idx+2]})`;
+        s.ctx.fillRect(x,y,1,1);
+      }
+      setTimeout(step, s.animDelay);
+    }
+    step();
+  });
+};
+
+createGrid();
+</script>
+
+</body>
+</html>

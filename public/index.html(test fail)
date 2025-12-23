@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Chain Reveal Grid</title>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            width: 100%;
+        }
+
+        .header h1 { margin: 0 0 10px 0; }
+        .header p { color: #888; font-size: 0.9rem; }
+
+        /* The Grid */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 95vw;
+            max-width: 1100px;
+        }
+
+        .grid-item {
+            background: #111;
+            border: 1px solid #222;
+            position: relative;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+
+        .grid-item:hover { border-color: #444; }
+
+        /* Live Data Labels */
+        .label-bar {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 8px 12px;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-bottom: 1px solid #333;
+            z-index: 10;
+        }
+
+        .label-top {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #fff;
+        }
+
+        .label-stats {
+            display: flex;
+            justify-content: space-between;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-box span { color: #888; font-size: 9px; margin-right: 4px; }
+
+        /* Canvas */
+        canvas {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            image-rendering: pixelated;
+            flex-grow: 1;
+        }
+
+        /* Controls */
+        .controls-bottom {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        button:hover { transform: scale(1.05); background: #00db75; }
+        button:active { transform: scale(0.95); }
+
+        input[type="file"] {
+            background: #222;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            color: white;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Live Cluster Reveal</h1>
+        <p>Animation speed is powered by real-time blockchain TPS.</p>
+        <input type="file" id="imageInput" accept="image/*">
+    </div>
+
+    <div class="grid-container" id="gridContainer">
+        </div>
+
+    <div class="controls-bottom">
+        <button id="startBtn">REVEAL CHAINS</button>
+    </div>
+
+    <script>
+        const gridContainer = document.getElementById('gridContainer');
+        const imageInput = document.getElementById('imageInput');
+        const startBtn = document.getElementById('startBtn');
+
+        // 1. CONFIG: Mapped to your Server Routes (9 Items)
+        // Ensure you have these images in your public folder!
+        const config = [
+            { id: "fogo", name: "Fogo", img: "fogo.png", url: "/api/fogo-stats" },
+            { id: "aptos", name: "Aptos", img: "aptos.png", url: "/api/aptos-stats" },
+            { id: "sui", name: "Sui", img: "sui.png", url: "/api/sui-stats" },
+            { id: "solana", name: "Solana", img: "solana.png", url: "/api/solana-stats" },
+            { id: "near", name: "Near", img: "near.png", url: "/api/near-stats" },
+            { id: "monad", name: "Monad", img: "monad.png", url: "/api/monad-stats" },
+            { id: "bnb", name: "BNB Chain", img: "bnb.png", url: "/api/bnb-stats" },
+            { id: "arbitrum", name: "Arbitrum", img: "arbitrum.png", url: "/api/arbitrum-stats" },
+            { id: "sei", name: "Sei", img: "sei.png", url: "/api/sei-stats" }
+        ];
+
+        // State for live data
+        let chainData = {}; 
+        let controllers = [];
+
+        // Initialize
+        window.onload = () => {
+            setupGrid(null);
+            startLiveUpdates();
+        };
+
+        // --- GRID SETUP ---
+        function setupGrid(userImg) {
+            gridContainer.innerHTML = '';
+            controllers = [];
+
+            config.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerHTML = `
+                    <div class="label-bar">
+                        <div class="label-top">
+                            <span>${item.name}</span>
+                            <span id="status-${item.id}">Waiting...</span>
+                        </div>
+                        <div class="label-stats">
+                            <div class="stat-box"><span>TPS</span><b id="tps-${item.id}">--</b></div>
+                            <div class="stat-box"><span>BLK</span><b id="height-${item.id}">--</b></div>
+                        </div>
+                    </div>
+                    <canvas id="canv-${item.id}"></canvas>
+                `;
+                gridContainer.appendChild(div);
+
+                const canvas = div.querySelector('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const displayImg = new Image();
+                displayImg.src = userImg ? userImg.src : item.img;
+
+                displayImg.onload = () => {
+                    canvas.width = 400; 
+                    canvas.height = 400;
+
+                    ctx.drawImage(displayImg, 0, 0, canvas.width, canvas.height);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Start Black
+                    ctx.fillStyle = "#111";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    let pixels = [];
+                    for (let i = 0; i < canvas.width * canvas.height; i++) pixels.push(i);
+                    shuffle(pixels);
+
+                    // Store animation controller
+                    controllers.push(() => {
+                        // Calculate speed based on TPS if available
+                        const tps = chainData[item.id]?.tps || 10; // Default 10 if no data
+                        
+                        // Higher TPS = Faster Speed (Lower ms)
+                        // Base constant: 5000. If TPS is 1000, speed is 5ms. If TPS is 10, speed is 500ms.
+                        // Clamped between 1ms (super fast) and 200ms (slow)
+                        let speedMs = Math.max(1, Math.min(200, 5000 / tps));
+                        
+                        // For visuals, we also adjust cluster size for high TPS chains
+                        const clusterSize = Math.max(5, Math.floor(tps / 2));
+
+                        animate(ctx, imgData, pixels, speedMs, clusterSize);
+                    });
+                };
+                
+                // Handle image load error (fallback)
+                displayImg.onerror = () => {
+                    ctx.fillStyle = "#222";
+                    ctx.fillRect(0,0,400,400);
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "20px Arial";
+                    ctx.fillText(item.name, 20, 50);
+                };
+            });
+        }
+
+        // --- ANIMATION LOGIC ---
+        startBtn.addEventListener('click', () => {
+            controllers.forEach(fn => fn());
+            startBtn.innerText = "REVEALING...";
+            startBtn.disabled = true;
+            startBtn.style.background = "#333";
+            startBtn.style.color = "#888";
+        });
+
+        function animate(ctx, sourceData, pixelIndices, speedMs, clusterSize) {
+            let currentIdx = 0;
+            const data = sourceData.data;
+            const width = sourceData.width;
+
+            function step() {
+                if (currentIdx < pixelIndices.length) {
+                    for (let n = 0; n < clusterSize; n++) {
+                        if (currentIdx + n >= pixelIndices.length) break;
+                        const pPos = pixelIndices[currentIdx + n];
+                        const x = pPos % width;
+                        const y = Math.floor(pPos / width);
+                        const rIdx = pPos * 4;
+                        ctx.fillStyle = `rgb(${data[rIdx]}, ${data[rIdx+1]}, ${data[rIdx+2]})`;
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                    currentIdx += clusterSize;
+                    setTimeout(step, speedMs);
+                }
+            }
+            step();
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // --- LIVE DATA FETCHING ---
+        const prevState = {};
+
+        async function startLiveUpdates() {
+            setInterval(fetchAll, 3000); // Update every 3 seconds
+            fetchAll();
+        }
+
+        async function fetchAll() {
+            for (const item of config) {
+                try {
+                    const r = await fetch(item.url);
+                    const curr = await r.json();
+                    
+                    updateMetrics(item.id, curr);
+                } catch (e) {
+                    console.error("Error fetching " + item.id);
+                }
+            }
+        }
+
+        function updateMetrics(key, curr) {
+            const prev = prevState[key];
+            let tps = 0;
+
+            // Scenario 1: Backend calculated TPS (EVMs, NEAR, Fogo)
+            if (curr.tps !== undefined) {
+                tps = curr.tps;
+            } 
+            // Scenario 2: Frontend Calc (Aptos, Sui, etc)
+            else if (prev) {
+                const timeDiff = (curr.timestamp - prev.timestamp) / 1000;
+                if (timeDiff > 0) {
+                    tps = (curr.tx_count - prev.tx_count) / timeDiff;
+                }
+            }
+
+            // Save state
+            prevState[key] = curr;
+            chainData[key] = { tps: tps, height: curr.height };
+
+            // Update DOM
+            const tpsEl = document.getElementById(`tps-${key}`);
+            const hEl = document.getElementById(`height-${key}`);
+            const statusEl = document.getElementById(`status-${key}`);
+
+            if (tpsEl) tpsEl.innerText = Math.round(tps).toLocaleString();
+            if (hEl) hEl.innerText = curr.height ? curr.height.toLocaleString() : '--';
+            if (statusEl) {
+                statusEl.innerText = "LIVE";
+                statusEl.style.color = "#00ff88";
+            }
+        }
+
+        // Handle Custom Image Upload
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => setupGrid(img);
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+    </script>
+</body>
+</html>

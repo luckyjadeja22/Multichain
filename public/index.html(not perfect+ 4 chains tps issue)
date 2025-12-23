@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live SVM & EVM Cluster Dashboard</title>
+    <style>
+        body { background-color: #050505; color: #fff; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 95vw; max-width: 1100px; }
+        .grid-item { background: #111; border: 1px solid #333; position: relative; border-radius: 8px; overflow: hidden; }
+        .label { background: rgba(0, 0, 0, 0.85); padding: 8px; border-bottom: 1px solid #444; }
+        .chain-name { color: #00ff88; font-weight: bold; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; display: block; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 10px; color: #888; font-family: monospace; }
+        .val { color: #fff; }
+        canvas { width: 100%; aspect-ratio: 1/1; background: #000; image-rendering: pixelated; }
+        button { background: #00ff88; color: #000; border: none; padding: 15px 40px; font-size: 16px; font-weight: 800; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: 0.2s; }
+        button:hover { box-shadow: 0 0 20px #00ff88; }
+    </style>
+</head>
+<body>
+
+    <div class="header" style="text-align: center; margin-bottom: 20px;">
+        <h1>Live Blockchain Pulse</h1>
+        <p style="color: #666;">Pre-fetching live data for instant reveal.</p>
+    </div>
+
+    <div class="grid-container" id="gridContainer"></div>
+    <button id="startBtn">SYNC & START REVEAL</button>
+
+    <script>
+        const config = [
+            { name: "Fogo", endpoint: "/api/fogo-stats", img: "fogo.png" },
+            { name: "Aptos", endpoint: "/api/aptos-stats", img: "aptos.png" },
+            { name: "Sui", endpoint: "/api/sui-stats", img: "sui.png" },
+            { name: "Solana", endpoint: "/api/solana-stats", img: "solana.png" },
+            { name: "Op BNB", endpoint: "/api/bnb-stats", img: "opbnb.png" },
+            { name: "Sei", endpoint: "/api/sei-stats", img: "sei.png" },
+            { name: "Monad", endpoint: "/api/monad-stats", img: "monad.png" },
+            { name: "Somnia", endpoint: "/api/somnia-stats", img: "somnia.png" },
+            { name: "Arbitrum", endpoint: "/api/arbitrum-stats", img: "arbitrum.png" }
+        ];
+
+        let chainStates = {};
+
+        // Polling function: Runs continuously to update speed & TPS
+        async function pollChain(item) {
+            try {
+                const res = await fetch(item.endpoint);
+                const data = await res.json();
+                const state = chainStates[item.name];
+
+                // FIX for SVM Chains: They often return 'tx_count' or 'height'
+                const currentHeight = data.height || data.tx_count || 0;
+                
+                if (state.lastHeight > 0 && currentHeight > state.lastHeight) {
+                    const elapsed = Date.now() - state.lastUpdate;
+                    const blocks = currentHeight - state.lastHeight;
+                    const msPerBlock = elapsed / blocks;
+
+                    // Update live metrics
+                    state.blockSpeed = (msPerBlock / 1000).toFixed(2) + "s";
+                    // Dynamic delay logic: Faster blocks = smaller delay
+                    state.animDelay = Math.max(2, Math.min(80, msPerBlock / 100));
+                }
+
+                state.lastHeight = currentHeight;
+                state.lastUpdate = Date.now();
+                state.tps = data.tps ? data.tps.toFixed(2) : (data.tx_count ? "Live" : "0.00");
+
+                // Update UI Labels live regardless of if animation is running
+                document.getElementById(`tps-${item.name}`).innerText = state.tps;
+                document.getElementById(`speed-${item.name}`).innerText = state.blockSpeed || "Syncing...";
+
+            } catch (e) { console.warn(`Sync error ${item.name}:`, e); }
+        }
+
+        function setupGrid() {
+            const container = document.getElementById('gridContainer');
+            config.forEach(item => {
+                // Initialize state immediately
+                chainStates[item.name] = { lastHeight: 0, lastUpdate: Date.now(), animDelay: 40, isRunning: false };
+                
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerHTML = `
+                    <div class="label">
+                        <span class="chain-name">${item.name}</span>
+                        <div class="stat-row">
+                            <span>SPEED: <span id="speed-${item.name}" class="val">Syncing...</span></span>
+                            <span>TPS: <span id="tps-${item.name}" class="val">---</span></span>
+                        </div>
+                    </div>
+                    <canvas id="canv-${item.name}"></canvas>
+                `;
+                container.appendChild(div);
+
+                const canvas = div.querySelector('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.src = item.img; 
+                img.onload = () => {
+                    canvas.width = 400; canvas.height = 400;
+                    ctx.drawImage(img, 0, 0, 400, 400);
+                    const imgData = ctx.getImageData(0, 0, 400, 400);
+                    ctx.fillStyle = "black";
+                    ctx.fillRect(0, 0, 400, 400);
+                    chainStates[item.name].ctx = ctx;
+                    chainStates[item.name].imgData = imgData;
+                };
+
+                // START FETCHING IMMEDIATELY ON LOAD
+                setInterval(() => pollChain(item), 1500);
+            });
+        }
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            config.forEach(item => {
+                const state = chainStates[item.name];
+                if (state.isRunning) return;
+                state.isRunning = true;
+
+                let pixels = Array.from({length: 160000}, (_, i) => i);
+                // Shuffle pixels for random reveal
+                for (let i = pixels.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pixels[i], pixels[j]] = [pixels[j], pixels[i]];
+                }
+
+                let currentIdx = 0;
+                const clusterSize = 250; // Controls how "grainy" the reveal is
+
+                function step() {
+                    if (currentIdx < pixels.length) {
+                        for (let n = 0; n < clusterSize; n++) {
+                            const pPos = pixels[currentIdx++];
+                            if (pPos === undefined) break;
+                            const x = pPos % 400;
+                            const y = Math.floor(pPos / 400);
+                            const rIdx = pPos * 4;
+                            const d = state.imgData.data;
+                            state.ctx.fillStyle = `rgb(${d[rIdx]}, ${d[rIdx+1]}, ${d[rIdx+2]})`;
+                            state.ctx.fillRect(x, y, 1, 1);
+                        }
+                        // This timeout is live-updated by the pollChain function
+                        setTimeout(step, state.animDelay);
+                    }
+                }
+                step();
+            });
+        });
+
+        window.onload = setupGrid;
+    </script>
+</body>
+</html>

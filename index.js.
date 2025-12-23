@@ -1,0 +1,86 @@
+const express = require('express');
+const axios = require('axios');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static('public'));
+
+const getStats = async (url, body) => {
+    try {
+        const response = await axios.post(url, body, { timeout: 5000 });
+        return response.data.result;
+    } catch (e) { return null; }
+};
+
+async function getEvmStats(rpcUrl, lookbackCount) {
+    try {
+        const latestHex = await getStats(rpcUrl, { jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] });
+        if (!latestHex) return { tps: 0, height: 0, timestamp: Date.now() };
+        const latestHeight = parseInt(latestHex, 16);
+        const promises = [];
+        for (let i = 0; i < lookbackCount; i++) {
+            const blockNumHex = "0x" + (latestHeight - i).toString(16);
+            promises.push(getStats(rpcUrl, { jsonrpc: "2.0", id: 1, method: "eth_getBlockByNumber", params: [blockNumHex, false] }));
+        }
+        const blocks = await Promise.all(promises);
+        let totalTx = 0;
+        let newestTime = 0;
+        let oldestTime = 0;
+        blocks.filter(b => b && b.timestamp).forEach((b) => {
+            const t = parseInt(b.timestamp, 16);
+            totalTx += b.transactions.length;
+            if (t > newestTime) newestTime = t;
+            if (oldestTime === 0 || t < oldestTime) oldestTime = t;
+        });
+        const timeDiff = newestTime - oldestTime;
+        return { tps: (timeDiff > 0) ? (totalTx / timeDiff) : totalTx, height: latestHeight, timestamp: newestTime * 1000 };
+    } catch (e) { return { tps: 0, height: 0, timestamp: Date.now() }; }
+}
+
+// Routes
+app.get('/api/aptos-stats', async (req, res) => {
+    try {
+        const r = await axios.get('https://api.mainnet.aptoslabs.com/v1/');
+        res.json({ tx_count: parseInt(r.data.ledger_version), height: parseInt(r.data.block_height), timestamp: parseInt(r.data.ledger_timestamp) / 1000 });
+    } catch (e) { res.status(500).send(); }
+});
+
+app.get('/api/sui-stats', async (req, res) => {
+    try {
+        const seq = await getStats('https://fullnode.mainnet.sui.io:443', { jsonrpc: "2.0", id: 1, method: "sui_getLatestCheckpointSequenceNumber" });
+        const det = await getStats('https://fullnode.mainnet.sui.io:443', { jsonrpc: "2.0", id: 1, method: "sui_getCheckpoint", params: [seq] });
+        res.json({ tx_count: parseInt(det.networkTotalTransactions), height: parseInt(det.sequenceNumber), timestamp: parseInt(det.timestampMs) });
+    } catch (e) { res.status(500).send(); }
+});
+
+app.get('/api/solana-stats', async (req, res) => {
+    try {
+        const h = await getStats('https://api.mainnet-beta.solana.com', { jsonrpc: "2.0", id: 1, method: "getSlot" });
+        const tx = await getStats('https://api.mainnet-beta.solana.com', { jsonrpc: "2.0", id: 1, method: "getTransactionCount" });
+        res.json({ tx_count: tx, height: h, timestamp: Date.now() });
+    } catch (e) { res.status(500).send(); }
+});
+
+app.get('/api/fogo-stats', async (req, res) => {
+    try {
+        const h = await getStats('https://mainnet.fogo.io', { jsonrpc: "2.0", id: 1, method: "getSlot" });
+        const tx = await getStats('https://mainnet.fogo.io', { jsonrpc: "2.0", id: 1, method: "getTransactionCount" });
+        res.json({ tx_count: tx || 0, height: h || 0, timestamp: Date.now() });
+    } catch (e) { res.status(500).send(); }
+});
+
+app.get('/api/monad-stats', async (req, res) => res.json(await getEvmStats('https://rpc.monad.xyz', 5)));
+app.get('/api/bnb-stats', async (req, res) => res.json(await getEvmStats('https://bsc-dataseed.binance.org/', 5)));
+app.get('/api/arbitrum-stats', async (req, res) => res.json(await getEvmStats('https://arb1.arbitrum.io/rpc', 10)));
+app.get('/api/sei-stats', async (req, res) => res.json(await getEvmStats('https://evm-rpc.sei-apis.com', 10)));
+
+app.get('/api/near-stats', async (req, res) => {
+    try {
+        const block = await getStats('https://rpc.mainnet.near.org', { jsonrpc: "2.0", id: "1", method: "block", params: { finality: "final" } });
+        let txInBlock = 0;
+        if (block.chunks) block.chunks.forEach(c => { if (c.transactions) txInBlock += c.transactions.length; });
+        res.json({ tps: txInBlock / 1.2, height: block.header.height, timestamp: parseInt(block.header.timestamp_nanosec) / 1000000 });
+    } catch (e) { res.status(500).send(); }
+});
+
+app.listen(PORT, () => console.log(`Server live on port ${PORT}`));

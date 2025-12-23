@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Blockchain Reveal</title>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            width: 100%;
+        }
+
+        .status {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .status-item {
+            padding: 5px 15px;
+            background: #222;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+
+        .status-live {
+            color: #00ff88;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 95vw;
+            max-width: 1100px;
+        }
+
+        .grid-item {
+            background: #111;
+            border: 1px solid #222;
+            position: relative;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .label {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 10px;
+            font-size: 10px;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            text-transform: uppercase;
+        }
+
+        .chain-name {
+            font-weight: 600;
+        }
+
+        .stats {
+            display: flex;
+            gap: 10px;
+            font-size: 9px;
+        }
+
+        .stat-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            image-rendering: pixelated;
+        }
+
+        .controls-bottom {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            background: #00db75;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        input[type="file"] {
+            background: #222;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            color: white;
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            max-width: 600px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .legend-title {
+            color: #00ff88;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Real-Time Blockchain Reveal Dashboard</h1>
+        <p>Live pixel reveal based on actual blockchain performance data</p>
+        <div class="status">
+            <div class="status-item">Server: <span class="status-live" id="serverStatus">Connecting...</span></div>
+            <div class="status-item">Last Update: <span id="lastUpdate">--</span></div>
+        </div>
+        <div style="margin-top: 15px;">
+            <input type="file" id="imageInput" accept="image/*">
+            <span style="font-size: 12px; color: #888; margin-left: 10px;">Optional: Upload custom image for all chains</span>
+        </div>
+    </div>
+
+    <div class="grid-container" id="gridContainer"></div>
+
+    <div class="controls-bottom">
+        <button id="startBtn">START ANIMATION</button>
+        <button id="resetBtn">RESET</button>
+    </div>
+
+    <div class="legend">
+        <div class="legend-title">How it works:</div>
+        Pixel reveal speed is based on real-time block time data. Faster blockchains (lower block time) reveal pixels faster. 
+        Data updates every 3 seconds from live blockchain RPCs. Block time shown in real-time on each grid item.
+    </div>
+
+    <script>
+        const gridContainer = document.getElementById('gridContainer');
+        const imageInput = document.getElementById('imageInput');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const serverStatus = document.getElementById('serverStatus');
+        const lastUpdate = document.getElementById('lastUpdate');
+
+        // Configuration matching your server endpoints
+        const config = [
+            { name: "Fogo", key: "fogo", api: "/api/fogo-stats", img: "fogo.png" },
+            { name: "Aptos", key: "aptos", api: "/api/aptos-stats", img: "aptos.png" },
+            { name: "Sui", key: "sui", api: "/api/sui-stats", img: "sui.png" },
+            { name: "Solana", key: "solana", api: "/api/solana-stats", img: "solana.png" },
+            { name: "Monad", key: "monad", api: "/api/monad-stats", img: "monad.png" },
+            { name: "Near", key: "near", api: "/api/near-stats", img: "near.png" },
+            { name: "BNB Chain", key: "bnb", api: "/api/bnb-stats", img: "bnb.png" },
+            { name: "Arbitrum", key: "arbitrum", api: "/api/arbitrum-stats", img: "arbitrum.png" },
+            { name: "Sei", key: "sei", api: "/api/sei-stats", img: "sei.png" }
+        ];
+
+        let chainStates = {}; // Store state for each chain
+        let controllers = {}; // Animation controllers
+        let userImage = null;
+        let isAnimating = false;
+
+        // Initialize
+        window.onload = () => {
+            setupGrid();
+            startDataFetching();
+        };
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    userImage = img;
+                    setupGrid();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function setupGrid() {
+            gridContainer.innerHTML = '';
+            
+            config.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerHTML = `
+                    <div class="label">
+                        <span class="chain-name">${item.name}</span>
+                        <div class="stats">
+                            <span>BT: <span class="stat-value" id="bt-${item.key}">--</span></span>
+                            <span>TPS: <span class="stat-value" id="tps-${item.key}">--</span></span>
+                        </div>
+                    </div>
+                    <canvas id="canv-${item.key}"></canvas>
+                `;
+                gridContainer.appendChild(div);
+
+                const canvas = div.querySelector('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const displayImg = new Image();
+                displayImg.crossOrigin = "anonymous";
+                displayImg.src = userImage ? userImage.src : item.img;
+
+                displayImg.onload = () => {
+                    canvas.width = 400;
+                    canvas.height = 400;
+
+                    ctx.drawImage(displayImg, 0, 0, canvas.width, canvas.height);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = "black";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    let pixels = [];
+                    for (let i = 0; i < canvas.width * canvas.height; i++) pixels.push(i);
+                    shuffle(pixels);
+
+                    const clusterSize = Math.max(1, Math.floor(pixels.length / 500));
+
+                    chainStates[item.key] = {
+                        ctx,
+                        imgData,
+                        pixels,
+                        clusterSize,
+                        blockTime: null,
+                        tps: null,
+                        prevData: null
+                    };
+                };
+
+                displayImg.onerror = () => {
+                    console.warn(`Failed to load image for ${item.name}, using fallback`);
+                    // Create a colorful fallback
+                    canvas.width = 400;
+                    canvas.height = 400;
+                    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                    gradient.addColorStop(0, '#' + Math.floor(Math.random()*16777215).toString(16));
+                    gradient.addColorStop(1, '#' + Math.floor(Math.random()*16777215).toString(16));
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "black";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    let pixels = [];
+                    for (let i = 0; i < canvas.width * canvas.height; i++) pixels.push(i);
+                    shuffle(pixels);
+
+                    chainStates[item.key] = {
+                        ctx,
+                        imgData,
+                        pixels,
+                        clusterSize: Math.max(1, Math.floor(pixels.length / 500)),
+                        blockTime: null,
+                        tps: null,
+                        prevData: null
+                    };
+                };
+            });
+        }
+
+        async function fetchChainData() {
+            let successCount = 0;
+            
+            for (const item of config) {
+                try {
+                    const response = await fetch(item.api);
+                    const data = await response.json();
+                    
+                    const state = chainStates[item.key];
+                    if (!state) continue;
+
+                    // Calculate block time from consecutive calls
+                    if (state.prevData && data.height && data.timestamp) {
+                        const timeDiff = (data.timestamp - state.prevData.timestamp) / 1000;
+                        const blockDiff = data.height - state.prevData.height;
+                        
+                        if (blockDiff > 0 && timeDiff > 0) {
+                            state.blockTime = timeDiff / blockDiff;
+                        }
+                    }
+
+                    // Update TPS
+                    if (data.tps !== undefined) {
+                        state.tps = data.tps;
+                    } else if (state.prevData && data.tx_count) {
+                        const timeDiff = (data.timestamp - state.prevData.timestamp) / 1000;
+                        if (timeDiff > 0) {
+                            state.tps = (data.tx_count - state.prevData.tx_count) / timeDiff;
+                        }
+                    }
+
+                    state.prevData = data;
+
+                    // Update UI
+                    const btEl = document.getElementById(`bt-${item.key}`);
+                    const tpsEl = document.getElementById(`tps-${item.key}`);
+                    
+                    if (state.blockTime && state.blockTime < 60) {
+                        btEl.textContent = state.blockTime.toFixed(2) + 's';
+                    }
+                    
+                    if (state.tps !== null && state.tps !== undefined) {
+                        tpsEl.textContent = Math.round(state.tps);
+                    }
+
+                    successCount++;
+
+                } catch (e) {
+                    console.error(`Error fetching ${item.name}:`, e);
+                }
+            }
+
+            serverStatus.textContent = successCount > 0 ? 'Connected ✓' : 'Error';
+            serverStatus.style.color = successCount > 0 ? '#00ff88' : '#ff4444';
+            lastUpdate.textContent = new Date().toLocaleTimeString();
+        }
+
+        function startDataFetching() {
+            fetchChainData();
+            setInterval(fetchChainData, 3000);
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (isAnimating) return;
+            isAnimating = true;
+            startBtn.disabled = true;
+
+            config.forEach(item => {
+                const state = chainStates[item.key];
+                if (!state) return;
+
+                // Use block time to determine speed, fallback to default
+                let speedMs = state.blockTime ? state.blockTime * 1000 : 1000;
+                
+                // Clamp speed to reasonable range (50ms to 5000ms)
+                speedMs = Math.max(50, Math.min(5000, speedMs));
+
+                controllers[item.key] = animate(
+                    state.ctx,
+                    state.imgData,
+                    state.pixels,
+                    speedMs,
+                    state.clusterSize
+                );
+            });
+        });
+
+        resetBtn.addEventListener('click', () => {
+            // Stop all animations
+            Object.values(controllers).forEach(controller => {
+                if (controller && controller.stop) controller.stop();
+            });
+            controllers = {};
+            isAnimating = false;
+            startBtn.disabled = false;
+            
+            // Reset canvases
+            setupGrid();
+        });
+
+        function animate(ctx, sourceData, pixelIndices, speedMs, clusterSize) {
+            let currentIdx = 0;
+            const data = sourceData.data;
+            const width = sourceData.width;
+            let timeoutId;
+            let stopped = false;
+
+            function step() {
+                if (stopped || currentIdx >= pixelIndices.length) return;
+
+                for (let n = 0; n < clusterSize; n++) {
+                    if (currentIdx + n >= pixelIndices.length) break;
+                    const pPos = pixelIndices[currentIdx + n];
+                    const x = pPos % width;
+                    const y = Math.floor(pPos / width);
+                    const rIdx = pPos * 4;
+                    ctx.fillStyle = `rgb(${data[rIdx]}, ${data[rIdx+1]}, ${data[rIdx+2]})`;
+                    ctx.fillRect(x, y, 1, 1);
+                }
+                currentIdx += clusterSize;
+                timeoutId = setTimeout(step, speedMs);
+            }
+            
+            step();
+
+            return {
+                stop: () => {
+                    stopped = true;
+                    if (timeoutId) clearTimeout(timeoutId);
+                }
+            };
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Live Blockchain Pulse</title>
+
+<style>
+body {
+  background:#050505;
+  color:#fff;
+  font-family:Inter, system-ui, sans-serif;
+  margin:0;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+h1 { margin-bottom:6px; }
+p { color:#666; margin-bottom:20px; }
+
+.grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  width:95vw;
+  max-width:1100px;
+}
+
+.card {
+  background:#111;
+  border:1px solid #333;
+  border-radius:8px;
+  overflow:hidden;
+}
+
+.label {
+  padding:8px;
+  border-bottom:1px solid #444;
+  background:rgba(0,0,0,.85);
+}
+
+.chain {
+  color:#00ff88;
+  font-weight:700;
+  font-size:13px;
+  text-transform:uppercase;
+}
+
+.stats {
+  display:flex;
+  justify-content:space-between;
+  font-size:10px;
+  font-family:monospace;
+  color:#888;
+}
+
+.val { color:#fff; }
+
+canvas {
+  width:100%;
+  aspect-ratio:1/1;
+  background:#000;
+  image-rendering:pixelated;
+}
+
+button {
+  margin-top:20px;
+  background:#00ff88;
+  color:#000;
+  border:none;
+  padding:15px 40px;
+  font-size:16px;
+  font-weight:800;
+  border-radius:6px;
+  cursor:pointer;
+}
+button:hover { box-shadow:0 0 20px #00ff88; }
+</style>
+</head>
+
+<body>
+
+<h1>Live Blockchain Pulse</h1>
+<p>Revealing pixels based on real-time block speed</p>
+
+<div class="grid" id="grid"></div>
+<button id="startBtn">SYNC & START</button>
+
+<script>
+const CHAINS = [
+  { name:"Fogo", endpoint:"/api/fogo-stats", img:"fogo.png" },
+  { name:"Aptos", endpoint:"/api/aptos-stats", img:"aptos.png" },
+  { name:"Sui", endpoint:"/api/sui-stats", img:"sui.png" },
+  { name:"Solana", endpoint:"/api/solana-stats", img:"solana.png" },
+  { name:"Op BNB", endpoint:"/api/bnb-stats", img:"opbnb.png" },
+  { name:"Sei", endpoint:"/api/sei-stats", img:"sei.png" },
+  { name:"Monad", endpoint:"/api/monad-stats", img:"monad.png" },
+  { name:"Somnia", endpoint:"/api/somnia-stats", img:"somnia.png" },
+  { name:"Arbitrum", endpoint:"/api/arbitrum-stats", img:"arbitrum.png" }
+];
+
+const state = {};
+const TOTAL_PIXELS = 400 * 400;
+
+function setup() {
+  const grid = document.getElementById("grid");
+
+  CHAINS.forEach(c => {
+    state[c.name] = {
+      lastHeight:0,
+      lastHeightTime:Date.now(),
+      lastTx:undefined,
+      lastTxTime:Date.now(),
+      blockMs:400,
+      tps:"Syncing...",
+      running:false
+    };
+
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = `
+      <div class="label">
+        <div class="chain">${c.name}</div>
+        <div class="stats">
+          <span>SPEED: <span class="val" id="spd-${c.name}">---</span></span>
+          <span>TPS: <span class="val" id="tps-${c.name}">---</span></span>
+        </div>
+      </div>
+      <canvas id="cv-${c.name}"></canvas>
+    `;
+    grid.appendChild(el);
+
+    const cv = el.querySelector("canvas");
+    const ctx = cv.getContext("2d");
+    cv.width = 400;
+    cv.height = 400;
+
+    const img = new Image();
+    img.src = c.img;
+    img.onload = () => {
+      ctx.drawImage(img,0,0,400,400);
+      state[c.name].img = ctx.getImageData(0,0,400,400);
+      ctx.fillStyle="black";
+      ctx.fillRect(0,0,400,400);
+      state[c.name].ctx = ctx;
+    };
+
+    setInterval(() => poll(c), 1500);
+  });
+}
+
+async function poll(chain) {
+  try {
+    const r = await fetch(chain.endpoint);
+    const d = await r.json();
+    const s = state[chain.name];
+    const now = Date.now();
+
+    /* BLOCK SPEED */
+    const h = d.height || d.tx_count || 0;
+    if (s.lastHeight && h > s.lastHeight) {
+      const dt = now - s.lastHeightTime;
+      const blocks = h - s.lastHeight;
+      s.blockMs = dt / blocks;
+      document.getElementById(`spd-${chain.name}`).innerText =
+        (s.blockMs/1000).toFixed(2) + "s";
+    }
+    s.lastHeight = h;
+    s.lastHeightTime = now;
+
+    /* TPS */
+    if (d.tps !== undefined) {
+      s.tps = d.tps.toFixed(2);
+    } else if (s.lastTx !== undefined && d.tx_count > s.lastTx) {
+      const sec = (now - s.lastTxTime) / 1000;
+      s.tps = sec > 0 ? ((d.tx_count - s.lastTx) / sec).toFixed(2) : s.tps;
+    }
+
+    s.lastTx = d.tx_count;
+    s.lastTxTime = now;
+
+    document.getElementById(`tps-${chain.name}`).innerText = s.tps;
+
+  } catch(e) {
+    console.warn(chain.name, e);
+  }
+}
+
+/* 🔥 REAL TIME BLOCK-SPEED ANIMATION */
+function startReveal(chain) {
+  const s = state[chain.name];
+  if (s.running || !s.img) return;
+  s.running = true;
+
+  const pixels = [...Array(TOTAL_PIXELS).keys()];
+  pixels.sort(()=>Math.random()-0.5);
+
+  let idx = 0;
+  let last = performance.now();
+
+  function frame(now) {
+    const dt = (now - last) / 1000;
+    last = now;
+
+    // Faster blocks → more pixels per second
+    const pixelsPerSec = TOTAL_PIXELS / s.blockMs;
+    const drawCount = Math.max(1, Math.floor(pixelsPerSec * dt));
+
+    for (let i=0;i<drawCount;i++) {
+      const p = pixels[idx++];
+      if (p === undefined) return;
+      const x = p % 400;
+      const y = (p / 400) | 0;
+      const d = s.img.data;
+      const j = p * 4;
+      s.ctx.fillStyle = `rgb(${d[j]},${d[j+1]},${d[j+2]})`;
+      s.ctx.fillRect(x,y,1,1);
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+document.getElementById("startBtn").onclick = () => {
+  CHAINS.forEach(startReveal);
+};
+
+setup();
+</script>
+
+</body>
+</html>

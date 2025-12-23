@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Chain Speed Monitor</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; color: #e2e8f0; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; margin: 0; }
+        .dashboard { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 15px; }
+        .chain-row { display: grid; grid-template-columns: 140px 1fr 1fr 1fr; background: #161618; padding: 20px; border-radius: 12px; align-items: center; border: 1px solid #27272a; transition: transform 0.2s; }
+        .chain-row:hover { transform: translateY(-2px); border-color: #3f3f46; }
+        .name { font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        .label { color: #71717a; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; }
+        .value { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; }
+
+        /* Chain Colors */
+        .aptos { color: #2dd4bf; }
+        .sui { color: #60a5fa; }
+        .solana { color: #a855f7; }
+        .bnb { color: #F0B90B; }
+        .arbitrum { color: #12AAFF; }
+        .sei-chain { color: #FF4A4A; }
+        .fogo { color: #f97316; }   
+        .monad { color: #8b5cf6; }  
+        /* Somnia Color (Dream/Night Purple) */
+        .somnia { color: #7c3aed; } 
+    </style>
+</head>
+<body>
+
+    <h1>Multi-Chain Speed Monitor</h1>
+
+    <div class="dashboard">
+        <div class="chain-row">
+            <div class="name aptos">Aptos</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value aptos" id="aptos-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value aptos" id="aptos-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value aptos" id="aptos-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name sui">Sui</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value sui" id="sui-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value sui" id="sui-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value sui" id="sui-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name solana">Solana</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value solana" id="sol-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value solana" id="sol-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value solana" id="sol-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name fogo">Fogo</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value fogo" id="fogo-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value fogo" id="fogo-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value fogo" id="fogo-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name monad">Monad</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value monad" id="monad-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value monad" id="monad-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value monad" id="monad-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name somnia">Somnia</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value somnia" id="somnia-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value somnia" id="somnia-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value somnia" id="somnia-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name bnb">BNB Chain</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value bnb" id="bnb-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value bnb" id="bnb-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value bnb" id="bnb-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name arbitrum">Arbitrum</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value arbitrum" id="arb-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value arbitrum" id="arb-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value arbitrum" id="arb-h">--</div></div>
+        </div>
+
+        <div class="chain-row">
+            <div class="name sei-chain">Sei</div>
+            <div class="stat-group"><div class="label">TPS</div><div class="value sei-chain" id="sei-tps">--</div></div>
+            <div class="stat-group"><div class="label">Block Time</div><div class="value sei-chain" id="sei-bt">--</div></div>
+            <div class="stat-group"><div class="label">Latest Block</div><div class="value sei-chain" id="sei-h">--</div></div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            aptos: { prev: null }, sui: { prev: null }, solana: { prev: null }, 
+            somnia: { prev: null }, bnb: { prev: null }, arbitrum: { prev: null },
+            sei: { prev: null }, fogo: { prev: null }, monad: { prev: null }
+        };
+
+        function updateMetrics(key, curr, tpsId, btId, hId) {
+            const prevState = state[key].prev;
+            if (!curr) return;
+
+            // Update Height
+            if(curr.height) document.getElementById(hId).innerText = curr.height.toLocaleString();
+
+            // Scenario 1: Backend calculated TPS (EVMs, Somnia, Fogo)
+            if (curr.tps !== undefined) {
+                document.getElementById(tpsId).innerText = Math.round(curr.tps).toLocaleString();
+                
+                // Calculate Block Time if timestamp is available
+                if (prevState && curr.height > prevState.height && curr.timestamp) {
+                    const timeDiff = (curr.timestamp - prevState.timestamp) / 1000;
+                    const blockDiff = curr.height - prevState.height;
+                    const bt = blockDiff > 0 ? (timeDiff / blockDiff) : 0;
+                    if(bt > 0 && bt < 60) document.getElementById(btId).innerText = bt.toFixed(2) + 's';
+                }
+            } 
+            // Scenario 2: Calculate TPS from diff (Move chains like Aptos/Sui)
+            else if (prevState) {
+                const timeDiff = (curr.timestamp - prevState.timestamp) / 1000;
+                if (timeDiff > 0) {
+                    const tps = (curr.tx_count - prevState.tx_count) / timeDiff;
+                    const blockDiff = curr.height - prevState.height;
+                    const blockTime = blockDiff > 0 ? (timeDiff / blockDiff) : 0;
+
+                    document.getElementById(tpsId).innerText = Math.max(0, Math.round(tps)).toLocaleString();
+                    if (blockTime > 0) document.getElementById(btId).innerText = blockTime.toFixed(2) + 's';
+                }
+            }
+            state[key].prev = curr;
+        }
+
+        async function fetchAll() {
+            const configs = [
+                { url: '/api/aptos-stats', key: 'aptos', tps: 'aptos-tps', bt: 'aptos-bt', h: 'aptos-h' },
+                { url: '/api/sui-stats', key: 'sui', tps: 'sui-tps', bt: 'sui-bt', h: 'sui-h' },
+                { url: '/api/solana-stats', key: 'solana', tps: 'sol-tps', bt: 'sol-bt', h: 'sol-h' },
+                { url: '/api/somnia-stats', key: 'somnia', tps: 'somnia-tps', bt: 'somnia-bt', h: 'somnia-h' }, // Added Somnia
+                { url: '/api/fogo-stats', key: 'fogo', tps: 'fogo-tps', bt: 'fogo-bt', h: 'fogo-h' },   
+                { url: '/api/monad-stats', key: 'monad', tps: 'monad-tps', bt: 'monad-bt', h: 'monad-h' }, 
+                { url: '/api/bnb-stats', key: 'bnb', tps: 'bnb-tps', bt: 'bnb-bt', h: 'bnb-h' },
+                { url: '/api/arbitrum-stats', key: 'arbitrum', tps: 'arb-tps', bt: 'arb-bt', h: 'arb-h' },
+                { url: '/api/sei-stats', key: 'sei', tps: 'sei-tps', bt: 'sei-bt', h: 'sei-h' }
+            ];
+
+            for (const c of configs) {
+                try {
+                    const r = await fetch(c.url);
+                    const data = await r.json();
+                    updateMetrics(c.key, data, c.tps, c.bt, c.h);
+                } catch (e) { console.error("Error fetching " + c.key); }
+            }
+        }
+
+        setInterval(fetchAll, 3000); 
+        fetchAll();
+    </script>
+</body>
+</html>
