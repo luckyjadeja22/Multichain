@@ -7,154 +7,79 @@
 
 <style>
 body{
-  background:#050505;
-  color:#fff;
-  font-family:Inter,system-ui;
-  margin:0;
-  padding:20px;
-  min-height:100vh;
-  box-sizing:border-box;
+  background:#050505;color:#fff;font-family:Inter,system-ui;
+  margin:0;padding:10px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;height:100vh;
+  box-sizing:border-box;overflow:hidden;
 }
 
-header{
-  text-align:center;
-  margin-bottom:20px;
-}
-
-h1{
-  margin:0 0 5px;
-  font-size:clamp(1.2rem, 4vw, 2rem);
-}
-
-p{
-  margin:0 0 10px;
-  font-size:clamp(0.8rem, 2vw, 0.95rem);
-  color:#666;
-}
+h1{margin:0 0 5px;font-size:1.5rem}
+p{margin:0 0 10px;font-size:.9rem;color:#666}
 
 #raceTimer{
   font-family:monospace;
-  font-size:clamp(12px, 2vw, 16px);
+  font-size:14px;
   color:#00ff88;
-  margin-bottom:15px;
-  text-align:center;
+  margin-bottom:6px;
 }
 
 .grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
-  gap:15px;
-  width:100%;
-  max-width:1600px;
-  margin:0 auto;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;width:100%;
+  max-width:78vh;
+  aspect-ratio:1/1;
 }
 
 .card{
-  background:#111;
-  border:1px solid #333;
-  border-radius:8px;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  min-height:250px;
+  background:#111;border:1px solid #333;border-radius:8px;
+  overflow:hidden;display:flex;flex-direction:column;
 }
 
 .label{
-  padding:8px 12px;
+  padding:6px 10px;
   border-bottom:1px solid #333;
   background:#111;
   flex-shrink:0;
 }
 
-.chain{
-  color:#00ff88;
-  font-weight:700;
-  font-size:clamp(11px, 2vw, 13px);
-  margin-bottom:4px;
-}
+.chain{color:#00ff88;font-weight:700;font-size:12px}
 
 .stats{
-  display:flex;
-  justify-content:space-between;
-  flex-wrap:wrap;
-  gap:4px;
-  font-size:clamp(8px, 1.5vw, 10px);
-  font-family:monospace;
-  color:#888;
+  display:flex;justify-content:space-between;
+  font-size:9px;font-family:monospace;color:#888;
 }
 
 .val{color:#fff}
 
 canvas{
-  width:100%;
-  flex-grow:1;
-  background:#000;
-  image-rendering:pixelated;
-  aspect-ratio:1/1;
-}
-
-.controls{
-  text-align:center;
-  margin-top:20px;
+  width:100%;flex-grow:1;height:0;
+  background:#000;image-rendering:pixelated;
 }
 
 button{
-  background:#00ff88;
-  color:#000;
-  border:none;
-  padding:12px 40px;
-  font-size:clamp(12px, 2vw, 15px);
-  font-weight:800;
-  border-radius:6px;
-  cursor:pointer;
-  letter-spacing:1px;
-  transition:all 0.2s;
+  margin-top:15px;background:#00ff88;color:#000;
+  border:none;padding:10px 34px;font-size:14px;
+  font-weight:800;border-radius:6px;
+  cursor:pointer;letter-spacing:1px;
 }
 
-button:hover{
-  background:#00cc6a;
-  transform:scale(1.05);
-}
-
-button:active{
-  transform:scale(0.98);
-}
-
-/* Mobile optimization */
-@media (max-width: 768px) {
-  body{padding:10px;}
-  
-  .grid{
-    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
-    gap:10px;
-  }
-  
-  .card{min-height:180px;}
-  
-  .label{padding:6px 8px;}
-}
-
-@media (max-width: 480px) {
-  .grid{
-    grid-template-columns:1fr 1fr;
-  }
-}
+button:hover{background:#00cc6a}
 </style>
 </head>
 
 <body>
 
-<header>
+<center>
   <h1>Live Blockchain Pulse</h1>
   <p>Explorer-stable real-time visualization</p>
-  <div id="raceTimer">⏱ 0.00s</div>
-</header>
+</center>
+
+<div id="raceTimer">⏱ 0.00s</div>
 
 <div class="grid" id="grid"></div>
 
-<div class="controls">
-  <button id="startBtn">SYNC & START</button>
-</div>
+<button id="startBtn">SYNC & START</button>
 
 <script>
 const CHAINS=[
