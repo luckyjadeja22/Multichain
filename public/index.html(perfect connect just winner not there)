@@ -6,83 +6,124 @@
 <title>Live Blockchain Pulse</title>
 
 <style>
-body{
-  background:#050505;color:#fff;font-family:Inter,system-ui;
-  margin:0;padding:10px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;height:100vh;
-  box-sizing:border-box;overflow:hidden;
+/* ---------- BASE ---------- */
+body {
+  background: #050505;
+  color: #fff;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-h1{margin:0 0 5px;font-size:1.5rem}
-p{margin:0 0 10px;font-size:.9rem;color:#666}
+h1 { margin: 0 0 5px; font-size: 1.5rem; }
+p { margin: 0 0 15px; font-size: 0.9rem; color: #666; }
 
-#raceTimer{
-  font-family:monospace;
-  font-size:14px;
-  color:#00ff88;
-  margin-bottom:6px;
+/* ---------- GRID ---------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  
+  /* Keeps the 3x3 grid fitted within the screen height */
+  max-width: 78vh; 
+  aspect-ratio: 1 / 1;
 }
 
-.grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;width:100%;
-  max-width:78vh;
-  aspect-ratio:1/1;
+/* ---------- CARD ---------- */
+.card {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column; /* Stacks Header -> Canvas */
+  position: relative;
 }
 
-.card{
-  background:#111;border:1px solid #333;border-radius:8px;
-  overflow:hidden;display:flex;flex-direction:column;
+/* ---------- HEADER ---------- */
+.label {
+  padding: 6px 10px;
+  border-bottom: 1px solid #333;
+  background: #111; /* Solid background */
+  
+  /* FIX: Relative positioning so it pushes the canvas down */
+  position: relative;
+  flex-shrink: 0; /* Ensures header doesn't get squashed */
+  z-index: 2;
 }
 
-.label{
-  padding:6px 10px;
-  border-bottom:1px solid #333;
-  background:#111;
-  flex-shrink:0;
+.chain {
+  color: #00ff88;
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 2px;
 }
 
-.chain{color:#00ff88;font-weight:700;font-size:12px}
-
-.stats{
-  display:flex;justify-content:space-between;
-  font-size:9px;font-family:monospace;color:#888;
+.stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-family: monospace;
+  color: #888;
 }
 
-.val{color:#fff}
+.val { color: #fff }
 
-canvas{
-  width:100%;flex-grow:1;height:0;
-  background:#000;image-rendering:pixelated;
+/* ---------- CANVAS ---------- */
+canvas {
+  width: 100%;
+  /* FIX: Flex grow fills the remaining space below the header */
+  flex-grow: 1; 
+  height: 0; /* Required for flex-grow to calculate properly in some browsers */
+  background: #000;
+  image-rendering: pixelated;
+  display: block;
 }
 
-button{
-  margin-top:15px;background:#00ff88;color:#000;
-  border:none;padding:10px 34px;font-size:14px;
-  font-weight:800;border-radius:6px;
-  cursor:pointer;letter-spacing:1px;
+/* ---------- BUTTON ---------- */
+button {
+  margin-top: 15px;
+  background: #00ff88;
+  color: #000;
+  border: none;
+  padding: 10px 34px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-button:hover{background:#00cc6a}
+button:hover {
+  background: #00cc6a;
+}
 </style>
 </head>
 
 <body>
 
-<center>
-  <h1>Live Blockchain Pulse</h1>
-  <p>Explorer-stable real-time visualization</p>
-</center>
+  <div>
+    <center>
+      <h1>Live Blockchain Pulse</h1>
+      <p>Explorer-stable real-time visualization</p>
+    </center>
+  </div>
 
-<div id="raceTimer">⏱ 0.00s</div>
+  <div class="grid" id="grid"></div>
 
-<div class="grid" id="grid"></div>
-
-<button id="startBtn">SYNC & START</button>
+  <button id="startBtn">SYNC & START</button>
 
 <script>
-const CHAINS=[
+const CHAINS = [
   {name:"Fogo",endpoint:"/api/fogo-stats",img:"fogo.png"},
   {name:"Aptos",endpoint:"/api/aptos-stats",img:"aptos.png"},
   {name:"Sui",endpoint:"/api/sui-stats",img:"sui.png"},
@@ -94,26 +135,21 @@ const CHAINS=[
   {name:"Arbitrum",endpoint:"/api/arbitrum-stats",img:"arbitrum.png"}
 ];
 
-const TOTAL_PIXELS=400*400;
-const state={};
-let started=false;
-
-/* === RACE TRACKING === */
-let raceStartTime=0;
-let raceTimerInterval=null;
-let finishRank=1;
+const TOTAL_PIXELS = 400*400;
+const state = {};
+let started = false;
 
 /* ---------- SETUP ---------- */
-const grid=document.getElementById("grid");
-
+const grid = document.getElementById("grid");
 CHAINS.forEach(c=>{
   state[c.name]={
     lastHeight:0,lastHeightTime:0,
     lastTx:0,lastTxTime:0,
-    blockMs:null,tpsSamples:[],
-    tps:"Syncing",running:false,
-    img:null,ctx:null,
-    finished:false,finishTime:null
+    blockMs:null,
+    tpsSamples:[],
+    tps:"Syncing",
+    running:false,
+    img:null,ctx:null
   };
 
   const el=document.createElement("div");
@@ -131,7 +167,10 @@ CHAINS.forEach(c=>{
 
   const cv=el.querySelector("canvas");
   const ctx=cv.getContext("2d");
-  cv.width=400;cv.height=400;
+  
+  // Internal resolution stays high for crisp pixels
+  cv.width=400; 
+  cv.height=400;
 
   const img=new Image();
   img.src=c.img;
@@ -155,20 +194,20 @@ async function poll(chain){
     const now=Date.now();
 
     const h=d.height||d.tx_count||0;
-    if(s.lastHeight&&h>s.lastHeight){
+    if(s.lastHeight && h>s.lastHeight){
       const raw=(now-s.lastHeightTime)/(h-s.lastHeight);
-      s.blockMs=s.blockMs?s.blockMs*0.8+raw*0.2:raw;
+      s.blockMs = s.blockMs ? s.blockMs*0.8 + raw*0.2 : raw;
     }
     s.lastHeight=h;
     s.lastHeightTime=now;
 
     if(d.tps!==undefined){
       s.tps=d.tps.toFixed(2);
-    }else if(s.lastTx&&d.tx_count>s.lastTx){
+    }else if(s.lastTx && d.tx_count>s.lastTx){
       const sec=(now-s.lastTxTime)/1000;
       const instant=(d.tx_count-s.lastTx)/sec;
       s.tpsSamples.push(instant);
-      if(s.tpsSamples.length>10)s.tpsSamples.shift();
+      if(s.tpsSamples.length>10) s.tpsSamples.shift();
       s.tps=(s.tpsSamples.reduce((a,b)=>a+b,0)/s.tpsSamples.length).toFixed(2);
     }
 
@@ -177,15 +216,15 @@ async function poll(chain){
 
     document.getElementById(`tps-${chain.name}`).innerText=s.tps;
     document.getElementById(`spd-${chain.name}`).innerText=
-      s.blockMs?(s.blockMs/1000).toFixed(2)+"s":"Syncing";
+      s.blockMs ? (s.blockMs/1000).toFixed(2)+"s" : "Syncing";
 
-  }catch(e){}
+  }catch(e){ console.warn(chain.name,e) }
 }
 
 /* ---------- ANIMATION ---------- */
 function startReveal(chain){
   const s=state[chain.name];
-  if(s.running||!s.img)return;
+  if(s.running||!s.img) return;
   s.running=true;
 
   const px=[...Array(TOTAL_PIXELS).keys()];
@@ -199,31 +238,13 @@ function startReveal(chain){
   function frame(now){
     const dt=(now-last)/1000;
     last=now;
-    if(!started||!s.blockMs)return requestAnimationFrame(frame);
+    if(!started||!s.blockMs) return requestAnimationFrame(frame);
 
     const rate=TOTAL_PIXELS/s.blockMs;
     const count=Math.max(1,Math.floor(rate*dt));
 
     for(let n=0;n<count;n++){
-      const p=px[i++];
-      if(p===undefined){
-        if(!s.finished){
-          s.finished=true;
-          s.finishTime=(performance.now()-raceStartTime)/1000;
-
-          const stats=document.getElementById(`spd-${chain.name}`).parentElement;
-          const badge=document.createElement("div");
-          badge.style.color="#00ff88";
-          badge.style.fontWeight="700";
-          badge.style.fontSize="10px";
-          badge.innerText=`🏆 #${finishRank} — ${s.finishTime.toFixed(2)}s`;
-          stats.appendChild(badge);
-
-          finishRank++;
-        }
-        return;
-      }
-
+      const p=px[i++]; if(p===undefined) return;
       const x=p%400,y=(p/400)|0;
       const d=s.img.data,j=p*4;
       s.ctx.fillStyle=`rgb(${d[j]},${d[j+1]},${d[j+2]})`;
@@ -237,15 +258,6 @@ function startReveal(chain){
 /* ---------- START ---------- */
 document.getElementById("startBtn").onclick=()=>{
   started=true;
-  raceStartTime=performance.now();
-  finishRank=1;
-
-  if(raceTimerInterval)clearInterval(raceTimerInterval);
-  raceTimerInterval=setInterval(()=>{
-    const t=(performance.now()-raceStartTime)/1000;
-    document.getElementById("raceTimer").innerText=`⏱ ${t.toFixed(2)}s`;
-  },50);
-
   CHAINS.forEach(startReveal);
 };
 </script>

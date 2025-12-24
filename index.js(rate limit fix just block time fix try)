@@ -1,0 +1,201 @@
+const express = require('express');
+const axios = require('axios');
+const app = express();
+const PORT = 3000;
+
+app.use(express.static('public'));
+
+// Cache storage
+const cache = {};
+const CACHE_DURATION = 2000; // 2 seconds cache
+
+// Helper: Basic JSON RPC POST
+const getStats = async (url, body) => {
+    try {
+        const response = await axios.post(url, body, { timeout: 5000 });
+        return response.data.result;
+    } catch (e) { return null; }
+};
+
+// Helper: Accurate TPS for EVM chains
+async function getEvmStats(rpcUrl, lookbackCount) {
+    try {
+        const latestHex = await getStats(rpcUrl, { jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] });
+        if (!latestHex) return { tps: 0, height: 0, timestamp: Date.now() };
+        
+        const latestHeight = parseInt(latestHex, 16);
+        const promises = [];
+        
+        for (let i = 0; i < lookbackCount; i++) {
+            const blockNumHex = "0x" + (latestHeight - i).toString(16);
+            promises.push(getStats(rpcUrl, { jsonrpc: "2.0", id: 1, method: "eth_getBlockByNumber", params: [blockNumHex, false] }));
+        }
+
+        const blocks = await Promise.all(promises);
+        let totalTx = 0;
+        let newestTime = 0;
+        let oldestTime = 0;
+
+        blocks.filter(b => b && b.timestamp).forEach((b) => {
+            const t = parseInt(b.timestamp, 16);
+            totalTx += b.transactions.length;
+            if (t > newestTime) newestTime = t;
+            if (oldestTime === 0 || t < oldestTime) oldestTime = t;
+        });
+
+        const timeDiff = newestTime - oldestTime;
+        const calculatedTps = (timeDiff > 0) ? (totalTx / timeDiff) : (totalTx);
+
+        return {
+            tps: calculatedTps, 
+            height: latestHeight,
+            timestamp: newestTime * 1000
+        };
+    } catch (e) { 
+        return { tps: 0, height: 0, timestamp: Date.now() }; 
+    }
+}
+
+// Cache middleware
+function withCache(key, fetchFn) {
+    return async (req, res) => {
+        const now = Date.now();
+        
+        // Check if cache exists and is fresh
+        if (cache[key] && (now - cache[key].timestamp) < CACHE_DURATION) {
+            return res.json(cache[key].data);
+        }
+
+        // Fetch fresh data
+        try {
+            const data = await fetchFn();
+            cache[key] = {
+                data,
+                timestamp: now
+            };
+            res.json(data);
+        } catch (e) {
+            // Return stale cache if available, otherwise error
+            if (cache[key]) {
+                res.json(cache[key].data);
+            } else {
+                res.status(500).json({ error: 'Service unavailable' });
+            }
+        }
+    };
+}
+
+// Background polling to keep cache warm
+function startBackgroundPolling() {
+    const endpoints = [
+        { key: 'aptos', fn: fetchAptosStats },
+        { key: 'sui', fn: fetchSuiStats },
+        { key: 'solana', fn: fetchSolanaStats },
+        { key: 'fogo', fn: fetchFogoStats },
+        { key: 'monad', fn: fetchMonadStats },
+        { key: 'somnia', fn: fetchSomniaStats },
+        { key: 'bnb', fn: fetchBnbStats },
+        { key: 'arbitrum', fn: fetchArbitrumStats },
+        { key: 'sei', fn: fetchSeiStats }
+    ];
+
+    // Poll every 1.5 seconds
+    setInterval(async () => {
+        for (const endpoint of endpoints) {
+            try {
+                const data = await endpoint.fn();
+                cache[endpoint.key] = {
+                    data,
+                    timestamp: Date.now()
+                };
+            } catch (e) {
+                console.error(`Error polling ${endpoint.key}:`, e.message);
+            }
+        }
+    }, 1500);
+}
+
+// Data fetching functions
+async function fetchAptosStats() {
+    const r = await axios.get('https://api.mainnet.aptoslabs.com/v1/', { timeout: 5000 });
+    return { 
+        tx_count: parseInt(r.data.ledger_version), 
+        height: parseInt(r.data.block_height), 
+        timestamp: parseInt(r.data.ledger_timestamp) / 1000 
+    };
+}
+
+async function fetchSuiStats() {
+    const SUI = 'https://fullnode.mainnet.sui.io:443';
+    const seq = await getStats(SUI, { jsonrpc: "2.0", id: 1, method: "sui_getLatestCheckpointSequenceNumber" });
+    const det = await getStats(SUI, { jsonrpc: "2.0", id: 1, method: "sui_getCheckpoint", params: [seq] });
+    return { 
+        tx_count: parseInt(det.networkTotalTransactions), 
+        height: parseInt(det.sequenceNumber), 
+        timestamp: parseInt(det.timestampMs) 
+    };
+}
+
+async function fetchSolanaStats() {
+    const SOL = 'https://api.mainnet-beta.solana.com';
+    const h = await getStats(SOL, { jsonrpc: "2.0", id: 1, method: "getSlot" });
+    const tx = await getStats(SOL, { jsonrpc: "2.0", id: 1, method: "getTransactionCount" });
+    return { tx_count: tx, height: h, timestamp: Date.now() };
+}
+
+async function fetchFogoStats() {
+    const FOGO_RPC = 'https://mainnet.fogo.io';
+    const h = await getStats(FOGO_RPC, { jsonrpc: "2.0", id: 1, method: "getSlot" });
+    const tx = await getStats(FOGO_RPC, { jsonrpc: "2.0", id: 1, method: "getTransactionCount" });
+    return { tx_count: tx || 0, height: h || 0, timestamp: Date.now() };
+}
+
+async function fetchMonadStats() {
+    return await getEvmStats('https://rpc.monad.xyz', 5);
+}
+
+async function fetchSomniaStats() {
+    return await getEvmStats('https://somnia.publicnode.com', 10);
+}
+
+async function fetchBnbStats() {
+    return await getEvmStats('https://bsc-dataseed.binance.org/', 5);
+}
+
+async function fetchArbitrumStats() {
+    return await getEvmStats('https://arb1.arbitrum.io/rpc', 10);
+}
+
+async function fetchSeiStats() {
+    return await getEvmStats('https://evm-rpc.sei-apis.com', 10);
+}
+
+// API Routes with caching
+app.get('/api/aptos-stats', withCache('aptos', fetchAptosStats));
+app.get('/api/sui-stats', withCache('sui', fetchSuiStats));
+app.get('/api/solana-stats', withCache('solana', fetchSolanaStats));
+app.get('/api/fogo-stats', withCache('fogo', fetchFogoStats));
+app.get('/api/monad-stats', withCache('monad', fetchMonadStats));
+app.get('/api/somnia-stats', withCache('somnia', fetchSomniaStats));
+app.get('/api/bnb-stats', withCache('bnb', fetchBnbStats));
+app.get('/api/arbitrum-stats', withCache('arbitrum', fetchArbitrumStats));
+app.get('/api/sei-stats', withCache('sei', fetchSeiStats));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    const status = {};
+    for (const key in cache) {
+        status[key] = {
+            cached: !!cache[key],
+            age: cache[key] ? Date.now() - cache[key].timestamp : null
+        };
+    }
+    res.json({ status: 'ok', cache: status });
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log('Starting background polling...');
+    startBackgroundPolling();
+});
