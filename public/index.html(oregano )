@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Blockchain Pulse</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header>
+  <h1>Live Blockchain Pulse</h1>
+  <p>Explorer-stable real-time visualization</p>
+  <div id="raceTimer">⏱ 0.00s</div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="controls">
+  <button id="startBtn">SYNC & START</button>
+</div>
+
+<script>
+const CHAINS=[
+  {name:"Fogo",endpoint:"/api/fogo-stats",img:"fogo.png"},
+  {name:"Aptos",endpoint:"/api/aptos-stats",img:"aptos.png"},
+  {name:"Sui",endpoint:"/api/sui-stats",img:"sui.png"},
+  {name:"Solana",endpoint:"/api/solana-stats",img:"solana.png"},
+  {name:"Op BNB",endpoint:"/api/bnb-stats",img:"opbnb.png"},
+  {name:"Sei",endpoint:"/api/sei-stats",img:"sei.png"},
+  {name:"Monad",endpoint:"/api/monad-stats",img:"monad.png"},
+  {name:"Somnia",endpoint:"/api/somnia-stats",img:"somnia.png"},
+  {name:"Arbitrum",endpoint:"/api/arbitrum-stats",img:"arbitrum.png"}
+];
+
+const TOTAL_PIXELS=400*400;
+const state={};
+let started=false;
+
+/* === RACE TRACKING === */
+let raceStartTime=0;
+let raceTimerInterval=null;
+let finishRank=1;
+
+/* ---------- SETUP ---------- */
+const grid=document.getElementById("grid");
+
+CHAINS.forEach(c=>{
+  state[c.name]={
+    lastHeight:0,lastHeightTime:0,
+    lastTx:0,lastTxTime:0,
+    blockMs:null,tpsSamples:[],
+    tps:"Syncing",running:false,
+    img:null,ctx:null,
+    finished:false,finishTime:null
+  };
+
+  const el=document.createElement("div");
+  el.className="card";
+  el.innerHTML=`
+    <div class="label">
+      <div class="chain">
+        <span class="status-indicator" id="status-${c.name}"></span>
+        ${c.name}
+      </div>
+      <div class="stats">
+        <span>SPEED: <span class="val" id="spd-${c.name}">Syncing</span></span>
+        <span>TPS: <span class="val" id="tps-${c.name}">Syncing</span></span>
+      </div>
+    </div>
+    <canvas id="cv-${c.name}"></canvas>`;
+  grid.appendChild(el);
+  
+  // Add entrance animation delay
+  el.style.animationDelay = `${CHAINS.indexOf(c) * 0.1}s`;
+
+  const cv=el.querySelector("canvas");
+  const ctx=cv.getContext("2d");
+  cv.width=400;cv.height=400;
+
+  const img=new Image();
+  img.src=c.img;
+  img.onload=()=>{
+    ctx.drawImage(img,0,0,400,400);
+    state[c.name].img=ctx.getImageData(0,0,400,400);
+    ctx.fillStyle="black";
+    ctx.fillRect(0,0,400,400);
+    state[c.name].ctx=ctx;
+  };
+
+  setInterval(()=>poll(c),1500);
+});
+
+/* ---------- SMOOTH NUMBER TRANSITION ---------- */
+function animateValue(element, start, end, duration = 500) {
+  const startTime = performance.now();
+  const isNumber = !isNaN(start) && !isNaN(end);
+  
+  if (!isNumber) {
+    element.innerText = end;
+    return;
+  }
+
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    const current = start + (end - start) * easeOut;
+    
+    if (progress < 1) {
+      element.innerText = typeof end === 'string' && end.includes('s') 
+        ? current.toFixed(2) + 's'
+        : current.toFixed(2);
+      requestAnimationFrame(update);
+    } else {
+      element.innerText = end;
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+/* ---------- UPDATE ELEMENT WITH ANIMATION ---------- */
+function updateElement(id, newValue, oldValue) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  
+  element.classList.add('updating');
+  animateValue(element, oldValue, newValue, 500);
+  
+  setTimeout(() => {
+    element.classList.remove('updating');
+  }, 500);
+}
+
+/* ---------- POLLING ---------- */
+async function poll(chain){
+  try{
+    const card = document.querySelector(`#spd-${chain.name}`).closest('.card');
+    if (card) card.classList.add('syncing');
+    
+    const r=await fetch(chain.endpoint);
+    const d=await r.json();
+    const s=state[chain.name];
+    const now=Date.now();
+
+    const h=d.height||d.tx_count||0;
+    const oldBlockMs = s.blockMs;
+    if(s.lastHeight&&h>s.lastHeight){
+      const raw=(now-s.lastHeightTime)/(h-s.lastHeight);
+      s.blockMs=s.blockMs?s.blockMs*0.8+raw*0.2:raw;
+    }
+    s.lastHeight=h;
+    s.lastHeightTime=now;
+
+    const oldTps = s.tps;
+    if(d.tps!==undefined){
+      s.tps=d.tps.toFixed(2);
+    }else if(s.lastTx&&d.tx_count>s.lastTx){
+      const sec=(now-s.lastTxTime)/1000;
+      const instant=(d.tx_count-s.lastTx)/sec;
+      s.tpsSamples.push(instant);
+      if(s.tpsSamples.length>10)s.tpsSamples.shift();
+      s.tps=(s.tpsSamples.reduce((a,b)=>a+b,0)/s.tpsSamples.length).toFixed(2);
+    }
+
+    s.lastTx=d.tx_count||s.lastTx;
+    s.lastTxTime=now;
+
+    // Update with smooth transitions
+    const tpsEl = document.getElementById(`tps-${chain.name}`);
+    const spdEl = document.getElementById(`spd-${chain.name}`);
+    const chainEl = card.querySelector('.chain');
+    
+    if (oldTps !== s.tps && oldTps !== 'Syncing') {
+      updateElement(`tps-${chain.name}`, s.tps, parseFloat(oldTps) || 0);
+    } else {
+      tpsEl.innerText = s.tps;
+    }
+    
+    const speedValue = s.blockMs ? (s.blockMs/1000).toFixed(2)+"s" : "Syncing";
+    if (oldBlockMs && s.blockMs) {
+      const oldSpeed = (oldBlockMs/1000).toFixed(2);
+      updateElement(`spd-${chain.name}`, speedValue, oldSpeed);
+    } else {
+      spdEl.innerText = speedValue;
+    }
+
+    // Add active state when synced
+    if (card) {
+      card.classList.remove('syncing');
+      const statusEl = document.getElementById(`status-${chain.name}`);
+      if (statusEl) {
+        if (s.blockMs && s.tps !== 'Syncing') {
+          statusEl.classList.remove('syncing');
+          statusEl.classList.add('online');
+          card.classList.add('active');
+          if (chainEl) chainEl.classList.add('active');
+        } else {
+          statusEl.classList.remove('online');
+          statusEl.classList.add('syncing');
+        }
+      }
+    }
+
+  }catch(e){
+    const card = document.querySelector(`#spd-${chain.name}`).closest('.card');
+    if (card) card.classList.remove('syncing', 'active');
+  }
+}
+
+/* ---------- ANIMATION ---------- */
+function startReveal(chain){
+  const s=state[chain.name];
+  if(s.running||!s.img)return;
+  s.running=true;
+
+  const px=[...Array(TOTAL_PIXELS).keys()];
+  for(let i=px.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [px[i],px[j]]=[px[j],px[i]];
+  }
+
+  let i=0,last=performance.now();
+
+  function frame(now){
+    const dt=(now-last)/1000;
+    last=now;
+    if(!started||!s.blockMs)return requestAnimationFrame(frame);
+
+    const rate=TOTAL_PIXELS/s.blockMs;
+    const count=Math.max(1,Math.floor(rate*dt));
+
+    for(let n=0;n<count;n++){
+      const p=px[i++];
+      if(p===undefined){
+        if(!s.finished){
+          s.finished=true;
+          s.finishTime=(performance.now()-raceStartTime)/1000;
+
+          const stats=document.getElementById(`spd-${chain.name}`).parentElement;
+          const badge=document.createElement("div");
+          badge.className="winner-badge";
+          badge.style.color="#00ff88";
+          badge.style.fontWeight="700";
+          badge.style.fontSize="12px";
+          badge.style.marginTop="8px";
+          badge.style.padding="6px 12px";
+          badge.style.background="rgba(0, 255, 136, 0.15)";
+          badge.style.border="1px solid rgba(0, 255, 136, 0.3)";
+          badge.style.borderRadius="8px";
+          badge.style.animation="winnerPulse 1.5s ease-in-out infinite, fadeInUp 0.5s ease";
+          badge.innerText=`🏆 #${finishRank} — ${s.finishTime.toFixed(2)}s`;
+          stats.appendChild(badge);
+          
+          // Celebrate animation
+          const card = badge.closest('.card');
+          if (card) {
+            card.style.animation = 'celebration 0.6s ease';
+            setTimeout(() => {
+              card.style.animation = '';
+            }, 600);
+          }
+
+          finishRank++;
+        }
+        return;
+      }
+
+      const x=p%400,y=(p/400)|0;
+      const d=s.img.data,j=p*4;
+      s.ctx.fillStyle=`rgb(${d[j]},${d[j+1]},${d[j+2]})`;
+      s.ctx.fillRect(x,y,1,1);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- START ---------- */
+document.getElementById("startBtn").onclick=()=>{
+  const btn = document.getElementById("startBtn");
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  btn.style.cursor = 'not-allowed';
+  
+  started=true;
+  raceStartTime=performance.now();
+  finishRank=1;
+
+  // Animate button click
+  btn.style.transform = 'scale(0.95)';
+  setTimeout(() => {
+    btn.style.transform = '';
+  }, 150);
+
+  if(raceTimerInterval)clearInterval(raceTimerInterval);
+  raceTimerInterval=setInterval(()=>{
+    const t=(performance.now()-raceStartTime)/1000;
+    const timerEl = document.getElementById("raceTimer");
+    timerEl.innerText=`⏱ ${t.toFixed(2)}s`;
+    
+    // Add pulse effect every second
+    if (Math.floor(t) !== Math.floor(t - 0.05)) {
+      timerEl.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        timerEl.style.transform = '';
+      }, 200);
+    }
+  },50);
+
+  // Animate cards before starting
+  const cards = document.querySelectorAll('.card');
+  cards.forEach((card, i) => {
+    setTimeout(() => {
+      card.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        card.style.transform = '';
+      }, 200);
+    }, i * 50);
+  });
+
+  CHAINS.forEach(startReveal);
+};
+</script>
+
+</body>
+</html>
