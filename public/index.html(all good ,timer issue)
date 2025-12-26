@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,14 +206,15 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <h1>block canvas</h1>
+    <h1>Live Blockchain Pulse</h1>
+    <p>Explorer-stable real-time visualization</p>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
 
   <div class="grid" id="grid"></div>
 
   <div class="controls">
-    <button id="startBtn" style="opacity:0.5">SYNCING DATA...</button>
+    <button id="startBtn">Sync & Start</button>
   </div>
 </div>
 
@@ -318,23 +318,6 @@ let raceStartTime=0;
 let raceTimerInterval=null;
 let finishRank=1;
 
-/* === DATA READY TRACKING === */
-let allChainsReady=false;
-
-function checkAllChainsReady(){
-  const allReady=CHAINS.every(c=>{
-    const s=state[c.name];
-    return s.blockMs!==null && s.tps!=="Syncing";
-  });
-  
-  if(allReady&&!allChainsReady){
-    allChainsReady=true;
-    const btn=document.getElementById("startBtn");
-    btn.innerText="START RACE";
-    btn.style.opacity="1";
-  }
-}
-
 /* ---------- SETUP ---------- */
 const grid=document.getElementById("grid");
 
@@ -411,8 +394,6 @@ async function poll(chain){
     document.getElementById(`spd-${chain.name}`).innerText=
       s.blockMs?(s.blockMs/1000).toFixed(2)+"s":"Syncing";
 
-    checkAllChainsReady();
-
   }catch(e){}
 }
 
@@ -471,8 +452,6 @@ function startReveal(chain){
 
 /* ---------- START ---------- */
 document.getElementById("startBtn").onclick=()=>{
-  if(!allChainsReady||started)return;
-  
   started=true;
   raceStartTime=performance.now();
   finishRank=1;
@@ -482,9 +461,6 @@ document.getElementById("startBtn").onclick=()=>{
     const t=(performance.now()-raceStartTime)/1000;
     document.getElementById("raceTimer").innerText=`⏱ ${t.toFixed(2)}s`;
   },50);
-
-  document.getElementById("startBtn").innerText="RACE STARTED";
-  document.getElementById("startBtn").style.opacity="0.5";
 
   CHAINS.forEach(startReveal);
 };
