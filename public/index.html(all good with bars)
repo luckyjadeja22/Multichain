@@ -1,16 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Race</title>
+<title>Live Blockchain Pulse</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+/* === GLOBAL STYLES === */
 body{
   background:#050505;
   color:#fff;
-  font-family:Inter,system-ui;
+  font-family:Inter,system-ui,sans-serif;
   margin:0;
   padding:15px;
   min-height:100vh;
@@ -34,6 +35,8 @@ body{
 .content-wrapper{
   position:relative;
   z-index:1;
+  max-width:1400px;
+  margin:0 auto;
 }
 
 header{
@@ -52,42 +55,97 @@ h1{
   letter-spacing:-1px;
 }
 
-header > p{
-  margin:0 0 15px;
-  font-size:clamp(1rem, 3vw, 1.4rem);
-  color:#888;
-  font-weight:500;
-}
-
 #raceTimer{
   font-family:monospace;
   font-size:clamp(18px, 3vw, 28px);
   color:#00ff88;
-  margin-bottom:20px;
+  margin-bottom:10px;
   text-align:center;
   font-weight:700;
   text-shadow:0 0 10px rgba(0,255,136,0.5);
 }
 
+/* === CHART SECTION (UPDATED) === */
+.chart-container {
+  background: rgba(17,17,17,0.8);
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chart-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #00ff88;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00ff88;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse { 0%{opacity:1;} 50%{opacity:0.5;} 100%{opacity:1;} }
+
+/* Toggle Switch */
+.toggle-container {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn.active {
+  background: #333;
+  color: #00ff88;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.toggle-btn:hover:not(.active) { color: #fff; }
+
+/* === GRID CARDS === */
 .grid{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
   gap:15px;
   width:100%;
-  max-width:1400px;
-  margin:0 auto;
 }
 
-/* Desktop: Force 3 columns for 9 boxes to fit */
 @media (min-width: 769px) {
-  .grid{
-    grid-template-columns:repeat(3, 1fr);
-    gap:12px;
-  }
-  
-  .card{
-    min-height:220px;
-  }
+  .grid{ grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .card{ min-height:220px; }
 }
 
 .card{
@@ -117,7 +175,7 @@ header > p{
 .chain{
   color:#00ff88;
   font-weight:800;
-  font-size:clamp(20px, 2.5vw, 22px);
+  font-size:clamp(35px, 2.5vw, 37px);
   margin-bottom:6px;
   letter-spacing:0.5px;
 }
@@ -133,12 +191,9 @@ header > p{
   font-weight:600;
 }
 
-.val{
-  color:#fff;
-  font-weight:700;
-}
+.val{ color:#fff; font-weight:700; }
 
-canvas{
+canvas.card-canvas{
   width:100%;
   flex-grow:1;
   background:#000;
@@ -146,10 +201,7 @@ canvas{
   aspect-ratio:1/1;
 }
 
-.controls{
-  text-align:center;
-  margin-top:25px;
-}
+.controls{ text-align:center; margin-top:25px; margin-bottom: 50px;}
 
 button{
   background:linear-gradient(135deg, #00ff88, #00ccaa);
@@ -172,31 +224,14 @@ button:hover{
   box-shadow:0 6px 20px rgba(0,255,136,0.5);
 }
 
-button:active{
-  transform:scale(0.98);
-}
+button:active{ transform:scale(0.98); }
 
-/* Mobile optimization */
 @media (max-width: 768px) {
   body{padding:10px;}
-  
-  .grid{
-    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
-    gap:10px;
-  }
-  
+  .grid{ grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
   .card{min-height:180px;}
-  
   .label{padding:8px 10px;}
-}
-
-@media (max-width: 480px) {
-  .grid{
-    grid-template-columns:1fr 1fr;
-  }
-  
-  h1{font-size:1.8rem;}
-  header > p{font-size:0.95rem;}
+  .chart-container { padding: 10px; }
 }
 </style>
 </head>
@@ -207,9 +242,24 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <h1>block race</h1>
+    <h1>block canvas</h1>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
+
+  <div class="chart-container">
+    <div class="chart-header">
+      <div class="chart-title">
+        <div class="live-indicator"></div> LIVE COMPARISON
+      </div>
+      <div class="toggle-container">
+        <button class="toggle-btn active" onclick="setChartMode('tps', this)">TPS</button>
+        <button class="toggle-btn" onclick="setChartMode('block', this)">Block Time</button>
+      </div>
+    </div>
+    <div style="position: relative; height: 320px; width: 100%;">
+      <canvas id="mainChart"></canvas>
+    </div>
+  </div>
 
   <div class="grid" id="grid"></div>
 
@@ -219,123 +269,64 @@ button:active{
 </div>
 
 <script>
-/* === ANIMATED BACKGROUND === */
+/* === ANIMATED BACKGROUND (UNCHANGED) === */
 (function(){
   const canvas=document.getElementById("bgCanvas");
   const ctx=canvas.getContext("2d");
   let w=canvas.width=window.innerWidth;
   let h=canvas.height=window.innerHeight;
-  
   const particles=[];
-  const particleCount=80;
-  
-  class Particle{
-    constructor(){
-      this.x=Math.random()*w;
-      this.y=Math.random()*h;
-      this.vx=(Math.random()-0.5)*0.5;
-      this.vy=(Math.random()-0.5)*0.5;
-      this.size=Math.random()*2+1;
-    }
-    
-    update(){
-      this.x+=this.vx;
-      this.y+=this.vy;
-      
-      if(this.x<0||this.x>w)this.vx*=-1;
-      if(this.y<0||this.y>h)this.vy*=-1;
-    }
-    
-    draw(){
-      ctx.fillStyle="#00ff88";
-      ctx.beginPath();
-      ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
-      ctx.fill();
-    }
+  for(let i=0;i<80;i++){
+    particles.push({
+      x:Math.random()*w, y:Math.random()*h,
+      vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5,
+      size:Math.random()*2+1
+    });
   }
-  
-  for(let i=0;i<particleCount;i++){
-    particles.push(new Particle());
-  }
-  
   function animate(){
     ctx.fillStyle="rgba(5,5,5,0.1)";
     ctx.fillRect(0,0,w,h);
-    
     particles.forEach(p=>{
-      p.update();
-      p.draw();
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>w)p.vx*=-1; if(p.y<0||p.y>h)p.vy*=-1;
+      ctx.fillStyle="#00ff88"; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
     });
-    
-    // Draw connections
-    ctx.strokeStyle="rgba(0,255,136,0.1)";
-    ctx.lineWidth=0.5;
+    ctx.strokeStyle="rgba(0,255,136,0.1)"; ctx.lineWidth=0.5;
     for(let i=0;i<particles.length;i++){
       for(let j=i+1;j<particles.length;j++){
-        const dx=particles[i].x-particles[j].x;
-        const dy=particles[i].y-particles[j].y;
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        
-        if(dist<120){
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x,particles[i].y);
-          ctx.lineTo(particles[j].x,particles[j].y);
-          ctx.stroke();
+        if(Math.sqrt((particles[i].x-particles[j].x)**2+(particles[i].y-particles[j].y)**2)<120){
+          ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke();
         }
       }
     }
-    
     requestAnimationFrame(animate);
   }
-  
   animate();
-  
-  window.addEventListener("resize",()=>{
-    w=canvas.width=window.innerWidth;
-    h=canvas.height=window.innerHeight;
-  });
+  window.addEventListener("resize",()=>{ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; });
 })();
 
-/* === MAIN LOGIC (UNCHANGED) === */
+/* === MAIN LOGIC === */
 const CHAINS=[
-  {name:"Fogo",endpoint:"/api/fogo-stats",img:"fogo.png"},
-  {name:"Aptos",endpoint:"/api/aptos-stats",img:"aptos.png"},
-  {name:"Sui",endpoint:"/api/sui-stats",img:"sui.png"},
-  {name:"Solana",endpoint:"/api/solana-stats",img:"solana.png"},
-  {name:"BNB",endpoint:"/api/bnb-stats",img:"opbnb.png"},
-  {name:"Sei",endpoint:"/api/sei-stats",img:"sei.png"},
-  {name:"Monad",endpoint:"/api/monad-stats",img:"monad.png"},
-  {name:"Somnia",endpoint:"/api/somnia-stats",img:"somnia.png"},
-  {name:"Arbitrum",endpoint:"/api/arbitrum-stats",img:"arbitrum.png"}
+  {name:"Fogo",endpoint:"/api/fogo-stats",img:"fogo.png", color: "#FF4500"},
+  {name:"Aptos",endpoint:"/api/aptos-stats",img:"aptos.png", color: "#2DD8A7"},
+  {name:"Sui",endpoint:"/api/sui-stats",img:"sui.png", color: "#4EA3E2"},
+  {name:"Solana",endpoint:"/api/solana-stats",img:"solana.png", color: "#9945FF"},
+  {name:"BNB",endpoint:"/api/bnb-stats",img:"opbnb.png", color: "#F0B90B"},
+  {name:"Sei",endpoint:"/api/sei-stats",img:"sei.png", color: "#A7333F"},
+  {name:"Monad",endpoint:"/api/monad-stats",img:"monad.png", color: "#8B5CF6"},
+  {name:"Somnia",endpoint:"/api/somnia-stats",img:"somnia.png", color: "#EC4899"},
+  {name:"Arbitrum",endpoint:"/api/arbitrum-stats",img:"arbitrum.png", color: "#12AAFF"}
 ];
 
 const TOTAL_PIXELS=400*400;
 const state={};
 let started=false;
-
-/* === RACE TRACKING === */
 let raceStartTime=0;
 let raceTimerInterval=null;
 let finishRank=1;
-
-/* === DATA READY TRACKING === */
 let allChainsReady=false;
 
-function checkAllChainsReady(){
-  const allReady=CHAINS.every(c=>{
-    const s=state[c.name];
-    return s.blockMs!==null && s.tps!=="Syncing";
-  });
-  
-  if(allReady&&!allChainsReady){
-    allChainsReady=true;
-    const btn=document.getElementById("startBtn");
-    btn.innerText="START RACE";
-    btn.style.opacity="1";
-  }
-}
-
-/* ---------- SETUP ---------- */
+/* === SETUP GRID === */
 const grid=document.getElementById("grid");
 
 CHAINS.forEach(c=>{
@@ -345,20 +336,21 @@ CHAINS.forEach(c=>{
     blockMs:null,tpsSamples:[],
     tps:"Syncing",running:false,
     img:null,ctx:null,
-    finished:false,finishTime:null
+    finished:false,finishTime:null,
+    chartTps: 0, chartBlockTime: 0
   };
 
   const el=document.createElement("div");
   el.className="card";
   el.innerHTML=`
     <div class="label">
-      <div class="chain">${c.name}</div>
+      <div class="chain" style="color:${c.color}">${c.name}</div>
       <div class="stats">
         <span>SPEED: <span class="val" id="spd-${c.name}">Syncing</span></span>
         <span>TPS: <span class="val" id="tps-${c.name}">Syncing</span></span>
       </div>
     </div>
-    <canvas id="cv-${c.name}"></canvas>`;
+    <canvas id="cv-${c.name}" class="card-canvas"></canvas>`;
   grid.appendChild(el);
 
   const cv=el.querySelector("canvas");
@@ -378,7 +370,86 @@ CHAINS.forEach(c=>{
   setInterval(()=>poll(c),1500);
 });
 
-/* ---------- POLLING ---------- */
+/* === CHART LOGIC (BAR CHART) === */
+let chartMode = 'tps'; // 'tps' or 'block'
+const ctxChart = document.getElementById('mainChart').getContext('2d');
+
+const chainNames = CHAINS.map(c => c.name);
+const chainColors = CHAINS.map(c => c.color);
+
+const mainChart = new Chart(ctxChart, {
+  type: 'bar',
+  data: {
+    labels: chainNames,
+    datasets: [{
+      label: 'Metrics',
+      data: Array(CHAINS.length).fill(0),
+      backgroundColor: chainColors.map(c => c + '80'), // 50% opacity for neon look
+      borderColor: chainColors,
+      borderWidth: 2,
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }, // Hide legend since X-axis explains it
+      tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.95)',
+        titleColor: '#00ff88',
+        bodyColor: '#fff',
+        borderColor: '#333',
+        borderWidth: 1,
+        padding: 10,
+        callbacks: {
+          label: function(context) {
+             let raw = context.raw;
+             return chartMode === 'block' ? `${raw.toFixed(2)} seconds` : `${raw.toFixed(2)} TPS`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color: '#aaa', font: {family:'Inter', weight:'600'} },
+        grid: { display: false }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#666' },
+        beginAtZero: true
+      }
+    },
+    animation: { duration: 500 }
+  }
+});
+
+function setChartMode(mode, btn) {
+  chartMode = mode;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  mainChart.update();
+}
+
+// Update Chart Loop (1s)
+setInterval(() => {
+  const newData = CHAINS.map(c => {
+    const s = state[c.name];
+    if (chartMode === 'tps') {
+      return s.chartTps || 0;
+    } else {
+      return s.chartBlockTime > 0 ? (s.chartBlockTime / 1000) : 0;
+    }
+  });
+
+  mainChart.data.datasets[0].data = newData;
+  mainChart.update();
+}, 1000);
+
+
+/* === POLLING LOGIC (UNCHANGED) === */
 async function poll(chain){
   try{
     const r=await fetch(chain.endpoint);
@@ -396,16 +467,20 @@ async function poll(chain){
 
     if(d.tps!==undefined){
       s.tps=d.tps.toFixed(2);
+      s.chartTps = parseFloat(d.tps);
     }else if(s.lastTx&&d.tx_count>s.lastTx){
       const sec=(now-s.lastTxTime)/1000;
       const instant=(d.tx_count-s.lastTx)/sec;
       s.tpsSamples.push(instant);
       if(s.tpsSamples.length>10)s.tpsSamples.shift();
-      s.tps=(s.tpsSamples.reduce((a,b)=>a+b,0)/s.tpsSamples.length).toFixed(2);
+      const avgTps = s.tpsSamples.reduce((a,b)=>a+b,0)/s.tpsSamples.length;
+      s.tps=avgTps.toFixed(2);
+      s.chartTps = avgTps;
     }
 
     s.lastTx=d.tx_count||s.lastTx;
     s.lastTxTime=now;
+    if(s.blockMs) s.chartBlockTime = s.blockMs;
 
     document.getElementById(`tps-${chain.name}`).innerText=s.tps;
     document.getElementById(`spd-${chain.name}`).innerText=
@@ -416,35 +491,43 @@ async function poll(chain){
   }catch(e){}
 }
 
-/* ---------- ANIMATION ---------- */
+/* === RACE & ANIMATION LOGIC (UNCHANGED) === */
+function checkAllChainsReady(){
+  const allReady=CHAINS.every(c=>{
+    const s=state[c.name];
+    return s.blockMs!==null && s.tps!=="Syncing";
+  });
+  
+  if(allReady&&!allChainsReady){
+    allChainsReady=true;
+    const btn=document.getElementById("startBtn");
+    btn.innerText="START RACE";
+    btn.style.opacity="1";
+  }
+}
+
 function startReveal(chain){
   const s=state[chain.name];
   if(s.running||!s.img)return;
   s.running=true;
-
   const px=[...Array(TOTAL_PIXELS).keys()];
   for(let i=px.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [px[i],px[j]]=[px[j],px[i]];
   }
-
   let i=0,last=performance.now();
-
   function frame(now){
     const dt=(now-last)/1000;
     last=now;
     if(!started||!s.blockMs)return requestAnimationFrame(frame);
-
     const rate=TOTAL_PIXELS/s.blockMs;
     const count=Math.max(1,Math.floor(rate*dt));
-
     for(let n=0;n<count;n++){
       const p=px[i++];
       if(p===undefined){
         if(!s.finished){
           s.finished=true;
           s.finishTime=(performance.now()-raceStartTime)/1000;
-
           const stats=document.getElementById(`spd-${chain.name}`).parentElement;
           const badge=document.createElement("div");
           badge.style.color="#00ff88";
@@ -453,12 +536,10 @@ function startReveal(chain){
           badge.style.marginTop="4px";
           badge.innerText=`🏆 #${finishRank} — ${s.finishTime.toFixed(2)}s`;
           stats.appendChild(badge);
-
           finishRank++;
         }
         return;
       }
-
       const x=p%400,y=(p/400)|0;
       const d=s.img.data,j=p*4;
       s.ctx.fillStyle=`rgb(${d[j]},${d[j+1]},${d[j+2]})`;
@@ -469,26 +550,20 @@ function startReveal(chain){
   requestAnimationFrame(frame);
 }
 
-/* ---------- START ---------- */
 document.getElementById("startBtn").onclick=()=>{
   if(!allChainsReady||started)return;
-  
   started=true;
   raceStartTime=performance.now();
   finishRank=1;
-
   if(raceTimerInterval)clearInterval(raceTimerInterval);
   raceTimerInterval=setInterval(()=>{
     const t=(performance.now()-raceStartTime)/1000;
     document.getElementById("raceTimer").innerText=`⏱ ${t.toFixed(2)}s`;
   },50);
-
   document.getElementById("startBtn").innerText="RACE STARTED";
   document.getElementById("startBtn").style.opacity="0.5";
-
   CHAINS.forEach(startReveal);
 };
 </script>
-
 </body>
 </html>

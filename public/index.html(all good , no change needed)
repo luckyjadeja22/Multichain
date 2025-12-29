@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Race</title>
+<title>Live Blockchain Pulse</title>
 
 <style>
 body{
@@ -82,11 +82,11 @@ header > p{
 @media (min-width: 769px) {
   .grid{
     grid-template-columns:repeat(3, 1fr);
-    gap:12px;
+    gap:10px;
   }
   
   .card{
-    min-height:220px;
+    min-height:160px;
   }
 }
 
@@ -97,7 +97,7 @@ header > p{
   overflow:hidden;
   display:flex;
   flex-direction:column;
-  min-height:200px;
+  min-height:150px;
   backdrop-filter:blur(10px);
   transition:transform 0.2s, border-color 0.2s;
 }
@@ -108,7 +108,7 @@ header > p{
 }
 
 .label{
-  padding:10px 14px;
+  padding:8px 10px;
   border-bottom:1px solid #333;
   background:rgba(17,17,17,0.95);
   flex-shrink:0;
@@ -117,7 +117,7 @@ header > p{
 .chain{
   color:#00ff88;
   font-weight:800;
-  font-size:clamp(20px, 2.5vw, 22px);
+  font-size:clamp(35px, 2.5vw, 37px);
   margin-bottom:6px;
   letter-spacing:0.5px;
 }
@@ -207,7 +207,7 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <h1>block race</h1>
+    <h1>block canvas</h1>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
 

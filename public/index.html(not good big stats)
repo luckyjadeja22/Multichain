@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Race</title>
+<title>Live Blockchain Pulse</title>
 
 <style>
 body{
@@ -117,7 +116,7 @@ header > p{
 .chain{
   color:#00ff88;
   font-weight:800;
-  font-size:clamp(20px, 2.5vw, 22px);
+  font-size:clamp(35px, 2.5vw, 37px);
   margin-bottom:6px;
   letter-spacing:0.5px;
 }
@@ -127,9 +126,10 @@ header > p{
   justify-content:space-between;
   flex-wrap:wrap;
   gap:6px;
-  font-size:clamp(15px, 4vw, 18px);
+  /* UPDATED: Increased max size to 24px and contrast for visibility on PC */
+  font-size:clamp(10px, 4vw, 1000px);
   font-family:monospace;
-  color:#888;
+  color:#bbb;
   font-weight:600;
 }
 
@@ -207,7 +207,7 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <h1>block race</h1>
+    <h1>block canvas</h1>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
 
