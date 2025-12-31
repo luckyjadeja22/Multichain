@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,41 +7,27 @@
 <title>Block Race</title>
 
 <style>
-:root{
-  --bg-main:#0B0F14;
-  --bg-card:#141A22;
-  --border:#1F2630;
-
-  --text-main:#FFFFFF;
-  --text-muted:#8B949E;
-
-  --green:#9EFF6A;
-  --green-soft:#7CFF3A;
-
-  --orange:#FF4D1D;
-  --orange-soft:#FF6A2A;
-}
-
-*{
-  box-sizing:border-box;
-}
-
 body{
-  background:var(--bg-main);
-  color:var(--text-main);
+  background:#050505;
+  color:#fff;
   font-family:Inter,system-ui;
   margin:0;
   padding:15px;
   min-height:100vh;
+  box-sizing:border-box;
   overflow-x:hidden;
+  position:relative;
 }
 
-/* Background canvas */
+/* Animated Background */
 #bgCanvas{
   position:fixed;
-  inset:0;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
   z-index:0;
-  opacity:0.12;
+  opacity:0.15;
   pointer-events:none;
 }
 
@@ -49,161 +36,167 @@ body{
   z-index:1;
 }
 
-/* Header */
 header{
   text-align:center;
   margin-bottom:20px;
 }
 
-/* Logo Styles */
-.logo {
-  max-width: 100%;
-  width: 500px; /* Adjust this to make logo bigger/smaller */
-  height: auto;
-  margin-bottom: 15px;
-  display: inline-block;
-  filter: drop-shadow(0 0 20px rgba(255, 77, 29, 0.2)); /* Subtle glow matching the logo fire */
+h1{
+  margin:0 0 10px;
+  font-size:clamp(2rem, 6vw, 3.5rem);
+  font-weight:900;
+  background:linear-gradient(135deg, #00ff88, #00ccff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:-1px;
 }
 
 header > p{
   margin:0 0 15px;
   font-size:clamp(1rem, 3vw, 1.4rem);
-  color:var(--text-muted);
+  color:#888;
   font-weight:500;
 }
 
 #raceTimer{
   font-family:monospace;
-  font-size:clamp(18px,3vw,28px);
-  color:var(--green);
+  font-size:clamp(18px, 3vw, 28px);
+  color:#00ff88;
   margin-bottom:20px;
-  font-weight:700;
-  text-shadow:0 0 12px rgba(158,255,106,0.4);
   text-align:center;
+  font-weight:700;
+  text-shadow:0 0 10px rgba(0,255,136,0.5);
 }
 
-/* Grid */
 .grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
   gap:15px;
+  width:100%;
   max-width:1400px;
   margin:0 auto;
 }
 
-@media(min-width:769px){
+/* Desktop: Force 3 columns for 9 boxes to fit */
+@media (min-width: 769px) {
   .grid{
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(3, 1fr);
+    gap:12px;
+  }
+  
+  .card{
+    min-height:220px;
   }
 }
 
-/* Cards */
 .card{
-  background:linear-gradient(180deg,var(--bg-card),#0E1218);
-  border:1px solid var(--border);
-  border-radius:10px;
+  background:rgba(17,17,17,0.9);
+  border:1px solid #333;
+  border-radius:8px;
   overflow:hidden;
   display:flex;
   flex-direction:column;
-  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
   min-height:200px;
+  backdrop-filter:blur(10px);
+  transition:transform 0.2s, border-color 0.2s;
 }
 
 .card:hover{
   transform:translateY(-2px);
-  border-color:var(--green);
-  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  border-color:#00ff88;
 }
 
 .label{
   padding:10px 14px;
-  border-bottom:1px solid var(--border);
-  background:rgba(0,0,0,0.15);
+  border-bottom:1px solid #333;
+  background:rgba(17,17,17,0.95);
   flex-shrink:0;
 }
 
 .chain{
-  color:var(--green);
+  color:#00ff88;
   font-weight:800;
-  font-size:24px;
+  font-size:clamp(20px, 2.5vw, 22px);
   margin-bottom:6px;
-  letter-spacing:0.3px;
+  letter-spacing:0.5px;
 }
 
 .stats{
   display:flex;
   justify-content:space-between;
-  font-family:monospace;
-  color:var(--text-muted);
-  font-size:18px;
   flex-wrap:wrap;
   gap:6px;
+  font-size:clamp(15px, 4vw, 18px);
+  font-family:monospace;
+  color:#888;
+  font-weight:600;
 }
 
 .val{
-  color:#ffffff;
+  color:#fff;
   font-weight:700;
 }
 
-/* Canvas */
 canvas{
   width:100%;
-  aspect-ratio:1/1;
+  flex-grow:1;
   background:#000;
   image-rendering:pixelated;
-  flex-grow:1;
+  aspect-ratio:1/1;
 }
 
-/* Controls */
 .controls{
   text-align:center;
   margin-top:25px;
 }
 
 button{
-  background:linear-gradient(135deg,var(--green),var(--green-soft));
-  color:#0B0F14;
+  background:linear-gradient(135deg, #00ff88, #00ccaa);
+  color:#000;
   border:none;
   padding:16px 50px;
+  font-size:clamp(14px, 2.5vw, 18px);
   font-weight:900;
-  border-radius:10px;
+  border-radius:8px;
   cursor:pointer;
   letter-spacing:1.5px;
-  box-shadow:0 6px 20px rgba(158,255,106,.3);
-  transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease;
-  font-size:clamp(14px, 2.5vw, 18px);
+  transition:all 0.3s;
+  box-shadow:0 4px 15px rgba(0,255,136,0.3);
   text-transform:uppercase;
 }
 
 button:hover{
-  box-shadow:0 10px 35px rgba(158,255,106,.45);
-  transform:scale(1.05);
+  background:linear-gradient(135deg, #00ccaa, #00ff88);
+  transform:scale(1.08);
+  box-shadow:0 6px 20px rgba(0,255,136,0.5);
 }
 
 button:active{
-  transform:scale(0.97);
+  transform:scale(0.98);
 }
 
-/* Orange heat glow */
-.content-wrapper::after{
-  content:"";
-  position:fixed;
-  bottom:-20%;
-  left:0;
-  width:100%;
-  height:60%;
-  background:radial-gradient(ellipse,var(--orange-soft),transparent 70%);
-  opacity:0.35;
-  pointer-events:none;
-  z-index:-1;
-}
-
-/* Mobile */
-@media(max-width:768px){
+/* Mobile optimization */
+@media (max-width: 768px) {
   body{padding:10px;}
+  
   .grid{
-    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+    gap:10px;
   }
+  
+  .card{min-height:180px;}
+  
+  .label{padding:8px 10px;}
+}
+
+@media (max-width: 480px) {
+  .grid{
+    grid-template-columns:1fr 1fr;
+  }
+  
+  h1{font-size:1.8rem;}
+  header > p{font-size:0.95rem;}
 }
 </style>
 </head>
@@ -214,7 +207,7 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <img src="1000917995.png" alt="Block Race" class="logo">
+    <h1>block race</h1>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
 
@@ -254,8 +247,7 @@ button:active{
     }
     
     draw(){
-      // Using the new green variable indirectly (hardcoded here to match style)
-      ctx.fillStyle="#9EFF6A"; 
+      ctx.fillStyle="#00ff88";
       ctx.beginPath();
       ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
       ctx.fill();
@@ -267,7 +259,8 @@ button:active{
   }
   
   function animate(){
-    ctx.clearRect(0,0,w,h); // Clear rect instead of fill for transparency to work with new CSS
+    ctx.fillStyle="rgba(5,5,5,0.1)";
+    ctx.fillRect(0,0,w,h);
     
     particles.forEach(p=>{
       p.update();
@@ -275,7 +268,7 @@ button:active{
     });
     
     // Draw connections
-    ctx.strokeStyle="rgba(158,255,106,0.15)";
+    ctx.strokeStyle="rgba(0,255,136,0.1)";
     ctx.lineWidth=0.5;
     for(let i=0;i<particles.length;i++){
       for(let j=i+1;j<particles.length;j++){
@@ -454,7 +447,7 @@ function startReveal(chain){
 
           const stats=document.getElementById(`spd-${chain.name}`).parentElement;
           const badge=document.createElement("div");
-          badge.style.color="#9EFF6A"; // Updated to match new theme
+          badge.style.color="#00ff88";
           badge.style.fontWeight="700";
           badge.style.fontSize="12px";
           badge.style.marginTop="4px";

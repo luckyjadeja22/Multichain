@@ -55,14 +55,15 @@ header{
   margin-bottom:20px;
 }
 
-/* Logo Styles */
-.logo {
-  max-width: 100%;
-  width: 500px; /* Adjust this to make logo bigger/smaller */
-  height: auto;
-  margin-bottom: 15px;
-  display: inline-block;
-  filter: drop-shadow(0 0 20px rgba(255, 77, 29, 0.2)); /* Subtle glow matching the logo fire */
+h1{
+  margin:0 0 10px;
+  font-size:clamp(2rem,6vw,3.5rem);
+  font-weight:900;
+  background:linear-gradient(135deg,var(--green),#ffffff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:-1px;
 }
 
 header > p{
@@ -214,7 +215,7 @@ button:active{
 
 <div class="content-wrapper">
   <header>
-    <img src="1000917995.png" alt="Block Race" class="logo">
+    <h1>block race</h1>
     <div id="raceTimer">⏱ 0.00s</div>
   </header>
 
